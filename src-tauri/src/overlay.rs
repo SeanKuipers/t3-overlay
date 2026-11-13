@@ -29,6 +29,8 @@ impl Rect {
 #[derive(Default)]
 pub struct OverlayState {
     pub hit_regions: Mutex<Vec<Rect>>,
+    /// The overlay is focusable right now (only while you type in it; see `take_focus`).
+    pub focusable: std::sync::atomic::AtomicBool,
     /// The window that had focus before the overlay took it (an HWND on Windows).
     pub previous_foreground: Mutex<Option<isize>>,
 }
@@ -51,16 +53,17 @@ pub fn place_and_show(app: &AppHandle) {
         let _ = window.set_position(PhysicalPosition::new(pos.x, pos.y));
         let _ = window.set_size(PhysicalSize::new(size.width, size.height));
     }
+    // The window is created non-focusable (`focusable: false` in tauri.conf.json), which
+    // gives it WS_EX_NOACTIVATE for as long as Tauri manages its styles. Tiling window
+    // managers (GlazeWM) skip such windows when they appear, so the overlay is never tiled
+    // or hidden with a workspace. It only becomes focusable while you type (take_focus).
     let _ = window.set_always_on_top(true);
-    // Mark it as a tool window *before* it first appears: tiling window managers such as
-    // GlazeWM skip tool windows, so the overlay stays on whichever workspace is active
-    // instead of being tiled and hidden with workspace 1.
+    let _ = window.set_ignore_cursor_events(true);
     platform::make_non_activating(&window);
-    platform::set_click_through(&window, true);
-    // Showing can activate the window. Mid-game (e.g. right after an update restart) that
-    // would steal keyboard focus from League, so hand it straight back.
+    // A non-focusable window can't steal focus when shown, but hand it back just in case.
     let before = platform::foreground();
-    platform::show_without_activating(&window);
+    let _ = window.show();
+    platform::make_non_activating(&window);
     platform::keep_on_top(&window);
     if before.is_some() && platform::foreground() == platform::hwnd(&window) {
         platform::restore_focus(before);
@@ -99,9 +102,17 @@ pub fn spawn_hit_test_loop(app: AppHandle) {
             };
             if over != interactive {
                 interactive = over;
-                platform::set_click_through(&window, !over);
+                let _ = window.set_ignore_cursor_events(!over);
             }
+            // Out of Alt+Tab (Tauri drops this bit whenever it rewrites the window style).
             platform::make_non_activating(&window);
+            // Focus moved elsewhere: back to non-focusable.
+            if state.focusable.load(std::sync::atomic::Ordering::SeqCst)
+                && platform::foreground() != platform::hwnd(&window)
+            {
+                state.focusable.store(false, std::sync::atomic::Ordering::SeqCst);
+                let _ = window.set_focusable(false);
+            }
         }
     });
 }
@@ -114,6 +125,8 @@ pub fn take_focus(app: &AppHandle) {
     if previous.is_some() && previous != platform::hwnd(&window) {
         *state.previous_foreground.lock().unwrap() = previous;
     }
+    state.focusable.store(true, std::sync::atomic::Ordering::SeqCst);
+    let _ = window.set_focusable(true);
     platform::force_focus(&window);
 }
 
@@ -122,6 +135,10 @@ pub fn release_focus(app: &AppHandle) {
     let state = app.state::<OverlayState>();
     let previous = state.previous_foreground.lock().unwrap().take();
     platform::restore_focus(previous);
+    if let Some(window) = window(app) {
+        state.focusable.store(false, std::sync::atomic::Ordering::SeqCst);
+        let _ = window.set_focusable(false);
+    }
 }
 
 /// Lets the next app we launch (the browser) come to the front. Without this Windows keeps
@@ -145,8 +162,7 @@ mod platform {
     use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
     use windows::Win32::UI::WindowsAndMessaging::{
         AllowSetForegroundWindow, BringWindowToTop, SetWindowPos, ASFW_ANY, HWND_TOPMOST,
-        SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SW_SHOWNOACTIVATE,
-        WS_EX_LAYERED, WS_EX_TRANSPARENT, FindWindowW, GetForegroundWindow, GetWindowLongPtrW,
+        SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, FindWindowW, GetForegroundWindow, GetWindowLongPtrW,
         GetWindowThreadProcessId, IsWindow, SetForegroundWindow, SetWindowLongPtrW, ShowWindow,
         GWL_EXSTYLE, SW_SHOW, WS_EX_TOOLWINDOW,
     };
@@ -175,29 +191,6 @@ mod platform {
                 if style & tool == 0 {
                     SetWindowLongPtrW(h, GWL_EXSTYLE, style | tool);
                 }
-            }
-        }
-    }
-
-    /// Click-through on/off, done directly on the window style. (Tauri's own
-    /// `set_ignore_cursor_events` rewrites every extended style bit, which would drop the
-    /// tool-window bit and let GlazeWM grab the window.)
-    pub fn set_click_through(window: &WebviewWindow, on: bool) {
-        let Some(h) = raw(window) else { return };
-        unsafe {
-            let style = GetWindowLongPtrW(h, GWL_EXSTYLE);
-            let bits = (WS_EX_TRANSPARENT.0 | WS_EX_LAYERED.0) as isize;
-            let next = (if on { style | bits } else { style & !bits }) | WS_EX_TOOLWINDOW.0 as isize;
-            if next != style {
-                SetWindowLongPtrW(h, GWL_EXSTYLE, next);
-            }
-        }
-    }
-
-    pub fn show_without_activating(window: &WebviewWindow) {
-        if let Some(h) = raw(window) {
-            unsafe {
-                let _ = ShowWindow(h, SW_SHOWNOACTIVATE);
             }
         }
     }
@@ -275,12 +268,7 @@ mod platform {
         None
     }
     pub fn make_non_activating(_window: &WebviewWindow) {}
-    pub fn set_click_through(window: &WebviewWindow, on: bool) {
-        let _ = window.set_ignore_cursor_events(on);
-    }
-    pub fn show_without_activating(window: &WebviewWindow) {
-        let _ = window.show();
-    }
+
     pub fn allow_any_foreground() {}
     pub fn keep_on_top(_window: &WebviewWindow) {}
     pub fn force_focus(window: &WebviewWindow) {

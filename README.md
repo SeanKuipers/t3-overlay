@@ -66,7 +66,7 @@ To update right now, even mid-game: once a new version is downloaded, the inbox'
 
 ### GlazeWM and other tiling window managers
 
-The overlay marks itself as a tool window, which GlazeWM doesn't manage, so it stays on whichever workspace you're on. If your window manager still grabs it, add an ignore rule. For GlazeWM, add this under `window_rules`:
+The overlay window can't be focused except while you type in it. GlazeWM leaves such windows alone, so the overlay stays on whichever workspace you're on. If your window manager still grabs it, add an ignore rule. For GlazeWM, add this under `window_rules`:
 
 ```yaml
 - commands: ['ignore']
