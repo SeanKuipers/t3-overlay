@@ -53,7 +53,7 @@ export async function installMock(scenario: string) {
         case "plugin:app|version":
           return "0.1.12";
         case "update_status":
-          return { phase: "upToDate" };
+          return scenario === "dead" ? { phase: "ready", version: "0.1.7" } : { phase: "upToDate" };
         case "take_update_notice":
           return scenario === "alive" ? { version: "0.1.12", notes: "Keep the overlay above the game" } : null;
         default:

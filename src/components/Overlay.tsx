@@ -3,6 +3,8 @@ import { errorMessage, native, on, type Config, type VoiceEvent } from "../lib/n
 import { useGame } from "../lib/useGame";
 import { useHitRegions } from "../lib/useHitRegions";
 import { useT3 } from "../lib/useT3";
+import { useUpdate } from "../lib/useUpdate";
+import { UpdatePill } from "./UpdateControl";
 import { Inbox } from "./Inbox";
 import { Notices, type NoticeView } from "./Notices";
 import { Ticker } from "./Ticker";
@@ -16,6 +18,7 @@ export function Overlay() {
   }, []);
 
   const game = useGame();
+  const update = useUpdate();
   const t3 = useT3(config?.pollSeconds ?? 4, config?.recentHours ?? 12);
 
   const [pinned, setPinned] = useState(false);
@@ -241,6 +244,7 @@ export function Overlay() {
           focused={focused}
           inputRef={inputRef}
           voiceHotkey={config?.voiceEnabled ? config.hotkeyVoice : null}
+          update={update}
           navHotkeys={config && config.hotkeyPrev && config.hotkeyNext ? [config.hotkeyPrev, config.hotkeyNext] : null}
           onSelect={setSelectedId}
           onCycle={cycle}
@@ -251,6 +255,7 @@ export function Overlay() {
         />
       )}
       {voice && <VoiceHud voice={voice} />}
+      {!visible && <UpdatePill status={update.status} />}
     </div>
   );
 }

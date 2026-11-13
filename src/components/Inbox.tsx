@@ -3,6 +3,8 @@ import Markdown from "react-markdown";
 import { isWorking } from "../lib/t3";
 import { useTicker, type Game } from "../lib/useGame";
 import type { ThreadView } from "../lib/useT3";
+import type { UpdateStatus } from "../lib/native";
+import { UpdateControl } from "./UpdateControl";
 
 interface Props {
   threads: ThreadView[];
@@ -17,6 +19,7 @@ interface Props {
   inputRef: RefObject<HTMLTextAreaElement | null>;
   voiceHotkey: string | null;
   navHotkeys: [string, string] | null;
+  update: { version: string | null; status: UpdateStatus };
   onSelect: (threadId: string) => void;
   onCycle: (step: number) => void;
   onDraft: (text: string) => void;
@@ -228,9 +231,9 @@ export function Inbox(props: Props) {
           <span className="key">↵</span> {props.sending ? "sending…" : "send"}
         </span>
         {props.navHotkeys && threads.length > 1 && (
-          <span>
+          <span title="Scrolling over the tabs works too">
             <span className="key">{shortKey(props.navHotkeys[0])}</span>
-            <span className="key">{shortKey(props.navHotkeys[1])}</span> or scroll tabs: switch
+            <span className="key">{shortKey(props.navHotkeys[1])}</span> threads
           </span>
         )}
         {props.voiceHotkey && (
@@ -238,6 +241,7 @@ export function Inbox(props: Props) {
             hold <span className="key">{shortKey(props.voiceHotkey)}</span> talk
           </span>
         )}
+        <UpdateControl version={props.update.version} status={props.update.status} />
       </div>
       {props.sendError && <div className="send-error">{props.sendError}</div>}
       {game.dead && (

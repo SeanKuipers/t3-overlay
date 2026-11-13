@@ -198,6 +198,11 @@ fn update_check(updates: State<'_, update::Updates>) {
     updates.check_now();
 }
 
+#[tauri::command]
+fn update_install_now(updates: State<'_, update::Updates>) {
+    updates.install_now();
+}
+
 /// The version we just updated to (once per update), for the "updated" notice.
 #[tauri::command]
 fn take_update_notice(updates: State<'_, update::Updates>) -> Option<update::Installed> {
@@ -332,8 +337,9 @@ fn show_settings(app: &AppHandle) -> tauri::Result<()> {
 fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let inbox = MenuItem::with_id(app, "inbox", "Open inbox", true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
+    let update = MenuItem::with_id(app, "update", "Update now", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit T3 Overlay", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&inbox, &settings, &quit])?;
+    let menu = Menu::with_items(app, &[&inbox, &settings, &update, &quit])?;
     let mut builder = TrayIconBuilder::with_id("main")
         .tooltip("T3 Overlay")
         .menu(&menu)
@@ -344,6 +350,7 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
             "settings" => {
                 let _ = show_settings(app);
             }
+            "update" => app.state::<update::Updates>().install_now(),
             "quit" => app.exit(0),
             _ => {}
         });
@@ -418,6 +425,7 @@ pub fn run() {
             set_nav_hotkeys,
             update_status,
             update_check,
+            update_install_now,
             take_update_notice,
         ])
         .run(tauri::generate_context!())

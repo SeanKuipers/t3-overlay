@@ -54,7 +54,7 @@ All hotkeys can be changed in Settings. After you send a message, focus goes str
 
 Every push to `main` publishes a signed release. The overlay checks for a new one every 5 minutes, downloads it in the background, and installs it silently as soon as you're not using it: inbox closed, not dictating. That works mid-game too. The overlay disappears for a few seconds, comes back on its own without taking focus from League, and briefly shows what changed.
 
-Turn this off, or check right away, under **Settings → Updates**. Updates are signed, and the overlay refuses any installer that isn't signed with the project's key.
+To update right now, even mid-game: open the inbox and click the version in its bottom-right corner. It shows **⬆ update to v…** once a new version is downloaded. **Update now** in the tray menu does the same. To turn automatic updates off, use **Settings → Updates**. Updates are signed, and the overlay refuses any installer that isn't signed with the project's key.
 
 ## How it works
 

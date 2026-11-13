@@ -46,6 +46,8 @@ pub struct Updates {
     pub overlay_busy: AtomicBool,
     /// "Check now" was pressed: install even if the Settings window is open.
     manual: AtomicBool,
+    /// "Install now" was pressed in the inbox: don't wait for the overlay to be idle.
+    force: AtomicBool,
     wake: Notify,
     /// The update we just restarted from, if any.
     installed: Mutex<Option<Installed>>,
@@ -63,6 +65,7 @@ impl Updates {
             auto: AtomicBool::new(auto),
             overlay_busy: AtomicBool::new(false),
             manual: AtomicBool::new(false),
+            force: AtomicBool::new(false),
             wake: Notify::new(),
             installed: Mutex::new(installed),
         }
@@ -75,6 +78,12 @@ impl Updates {
     pub fn check_now(&self) {
         self.manual.store(true, Ordering::SeqCst);
         self.wake.notify_one();
+    }
+
+    /// Check (if needed) and install right away, even with the inbox open.
+    pub fn install_now(&self) {
+        self.force.store(true, Ordering::SeqCst);
+        self.check_now();
     }
 
     pub fn take_installed(&self) -> Option<Installed> {
@@ -106,6 +115,7 @@ pub fn spawn(app: AppHandle) {
                     set(&app, Status::Error { message: format!("{e:#}") });
                 }
                 updates.manual.store(false, Ordering::SeqCst);
+                updates.force.store(false, Ordering::SeqCst);
             }
             tokio::select! {
                 _ = tokio::time::sleep(CHECK_EVERY) => {}
@@ -144,6 +154,9 @@ async fn wait_until_idle(app: &AppHandle) {
     let updates = app.state::<Updates>();
     let mut idle_since = None;
     loop {
+        if updates.force.load(Ordering::SeqCst) {
+            return;
+        }
         let settings_open = app
             .get_webview_window("settings")
             .and_then(|w| w.is_visible().ok())

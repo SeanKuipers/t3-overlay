@@ -77,6 +77,7 @@ export const native = {
   setOverlayBusy: (busy: boolean) => invoke<void>("set_overlay_busy", { busy }),
   updateStatus: () => invoke<UpdateStatus>("update_status"),
   updateCheck: () => invoke<void>("update_check"),
+  updateInstallNow: () => invoke<void>("update_install_now"),
   takeUpdateNotice: () => invoke<UpdateNotice | null>("take_update_notice"),
 };
 
