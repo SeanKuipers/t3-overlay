@@ -6,16 +6,16 @@ Read and answer your [T3 Code](https://t3.codes) agents while playing League of 
 
 - **While you're alive:** a small ticker in the corner shows which agents are working and which have replied. When an agent finishes, the first line of its reply pops up for a few seconds. Click either one to open that thread in the inbox, and click the ticker again to close it. The ticker is always on screen, whatever you're playing, and turns into a tiny "● T3" pill when nothing's happening. Drag it anywhere; the pop-ups follow it, and it remembers where you left it.
 - **While you're dead:** the **Respawn Inbox** opens on the left of the screen, clear of the shop. Drag it by its tab bar to wherever suits your HUD; double-click the tab bar to put it back. It shows your last message, the agent's reply, and a reply box, with a bar counting down to your respawn. It closes when you respawn, unless you've started typing a reply. In that case it stays open, and gives the keyboard back to League, until you send it or close the inbox with `Esc` or `×`.
-- **Agent questions:** when an agent stops to ask you something, the question shows up with its options. Click one to answer; a single-choice question is answered with that one click, which fits a death timer. The ticker says "<thread> asks", and the hub marks the thread with an orange **Question** label.
+- **Agent questions:** when an agent stops to ask you something, the question shows up with its options. Click one to answer; a single-choice question is answered with that one click, which fits a death timer. The ticker says "<thread> asks", and the dock shows an orange **?** on the chat.
 - **Outside games:** a slim **dock** sits on the right edge of the screen, like [OpenBot](https://github.com/CopilotKit/OpenBot)'s: the T3 logo, one round icon per recent chat (spinning ring while working, purple dot for a new reply, orange **?** for a question), **+** for a new chat and ⚙ for Settings. Hover it and it slides open to show names and status; click a chat to open it beside the dock, or the logo to open the current one. Settings → Dock can limit it to while the League client is open, or turn it off.
-- **Start new chats:** press **+** in the inbox's tab bar or the hub's header, pick a project from a picker like T3's own (search, arrow keys, **No project**), type what the agent should do, and press Enter. The new thread opens right away.
+- **Start new chats:** press **+** in the inbox's tab bar or on the dock, pick a project from a picker like T3's own (search, arrow keys, **No project**), type what the agent should do, and press Enter. The new thread opens right away.
 - **Reply by typing or by voice:** hold a key, talk, and let go. [Hex](https://github.com/anomalyco/hex) turns your speech into text and the overlay sends it to the thread.
 
 <p>
   <img src="docs/inbox.png" width="560" alt="Respawn Inbox">
 </p>
 <p>
-  <img src="docs/hub.png" width="620" alt="Chat hub outside games">
+  <img src="docs/dock.png" width="300" alt="The dock outside games, hovered">
 </p>
 <p>
   <img src="docs/ticker.png" height="60" alt="Ticker">&nbsp;&nbsp;<img src="docs/voice.png" height="60" alt="Voice">
