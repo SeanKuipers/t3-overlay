@@ -4,6 +4,7 @@ import { isWorking } from "../lib/t3";
 import { useGame } from "../lib/useGame";
 import { useHitRegions } from "../lib/useHitRegions";
 import { useT3 } from "../lib/useT3";
+import { useCornerDrag } from "../lib/useCornerDrag";
 import { useUpdate } from "../lib/useUpdate";
 import { UpdatePill } from "./UpdateControl";
 import { Hub } from "./Hub";
@@ -319,8 +320,8 @@ export function Overlay() {
   const notices: NoticeView[] = updateNotice ? [updateNotice, ...t3.notices] : t3.notices;
 
   // The ticker stays up while the inbox is open too, so it's always there to click.
-  // (The hub replaces it outside games.)
-  const showTicker = (inGameMode || !!config?.tickerOutsideGame) && !hubShown;
+  // Always on screen, whatever you're playing (it's tiny, and movable).
+  const corner = useCornerDrag();
 
   // Clicking the ticker or a notice opens that thread in the inbox, ready to reply.
   const openThread = useCallback(
@@ -342,7 +343,7 @@ export function Overlay() {
     [t3.dismissNotice, openThread],
   );
 
-  useHitRegions([inboxVisible, minimized, hubShown, hubChat, t3.threads.length, selectedId, sending]);
+  useHitRegions([corner.pos, corner.dragging, inboxVisible, minimized, hubShown, hubChat, t3.threads.length, selectedId, sending]);
 
   const draft = selected ? drafts[selected.threadId] ?? "" : "";
 
@@ -360,15 +361,28 @@ export function Overlay() {
 
   return (
     <div className="overlay-root">
-      {showTicker && (
+      {/* Ticker + notifications: dragged together, placed where you left them. */}
+      {corner.dragging && <div className="drag-shield" data-hit />}
+      <div
+        className="corner"
+        style={corner.pos ? { left: corner.pos.x, top: corner.pos.y } : undefined}
+        onPointerDown={corner.onPointerDown}
+        onClickCapture={corner.onClickCapture}
+      >
         <Ticker
           threads={t3.threads}
           connected={!!t3.status?.connected}
           onOpen={openThread}
           onOpenSettings={() => native.openSettings()}
+          onOpenAny={() => {
+            const id = selectedId ?? t3.threads[0]?.threadId;
+            if (id) openThread(id);
+            else if (hubShown) setHubChat(true);
+            else setPinned(true);
+          }}
         />
-      )}
-      {!inboxExpanded && <Notices notices={notices} onOpen={openNotice} />}
+        {!inboxExpanded && <Notices notices={notices} onOpen={openNotice} />}
+      </div>
       {hubShown && (
         <Hub
           threads={t3.threads}

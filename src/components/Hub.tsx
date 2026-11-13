@@ -68,13 +68,14 @@ export function Hub(props: Props) {
   }, [collapsed]);
 
   const railWidth = collapsed ? RAIL_WIDTH : width;
-  // Notices sit just right of the hub (see .notices in styles.css).
+  // The ticker's default spot is just right of the hub and its chat pane (see .corner).
+  const chatWidth = chatOpen && selected ? Math.min(500, window.innerWidth - 400) + GAP : 0;
   useEffect(() => {
-    document.documentElement.style.setProperty("--hub-right", `${EDGE + railWidth + GAP}px`);
+    document.documentElement.style.setProperty("--hub-right", `${EDGE + railWidth + GAP + chatWidth}px`);
     return () => {
       document.documentElement.style.removeProperty("--hub-right");
     };
-  }, [railWidth]);
+  }, [railWidth, chatWidth]);
 
   // Search what a row shows: its name, project and preview.
   const term = search.trim().toLowerCase();

@@ -117,12 +117,22 @@ html[data-view="overlay"] body {
 }
 
 /* ticker */
-.ticker {
+/* ticker + notifications, dragged together */
+.corner {
   position: absolute;
-  left: 12px;
+  left: var(--hub-right, 12px);
   top: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  z-index: 5;
+  user-select: none;
+}
+.ticker {
   padding: 6px 12px;
   font-size: 12.5px;
+  cursor: grab;
   display: flex;
   gap: 8px;
   align-items: center;
@@ -181,10 +191,12 @@ button.ticker {
 }
 
 /* notices */
+.ticker.idle {
+  padding: 5px 10px;
+  color: var(--muted);
+  gap: 6px;
+}
 .notices {
-  position: absolute;
-  left: var(--hub-right, 12px);
-  top: 52px;
   display: flex;
   flex-direction: column;
   gap: 8px;

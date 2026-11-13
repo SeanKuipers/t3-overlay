@@ -9,10 +9,12 @@ interface Props {
   /** Opens the inbox on this thread. */
   onOpen: (threadId: string) => void;
   onOpenSettings: () => void;
+  /** Opens the inbox / hub chat on whatever is selected (the idle pill). */
+  onOpenAny: () => void;
 }
 
-/** One line in the top-left corner. Click an item to open it in the inbox. */
-export function Ticker({ threads, connected, onOpen, onOpenSettings }: Props) {
+/** One line, always on screen (drag it anywhere). Click an item to open it in the inbox. */
+export function Ticker({ threads, connected, onOpen, onOpenSettings, onOpenAny }: Props) {
   useTicker(threads.some((t) => isWorking(t.status)), 5_000);
   if (!connected) {
     return (
@@ -24,7 +26,14 @@ export function Ticker({ threads, connected, onOpen, onOpenSettings }: Props) {
   const asking = threads.filter((t) => t.questions.length > 0);
   const working = threads.filter((t) => isWorking(t.status) && t.questions.length === 0);
   const unread = threads.filter((t) => t.unread);
-  if (working.length === 0 && unread.length === 0 && asking.length === 0) return null;
+  // Nothing going on: a tiny pill, so there's always something to grab or click.
+  if (working.length === 0 && unread.length === 0 && asking.length === 0) {
+    return (
+      <button className="ticker glass idle" data-hit onClick={onOpenAny} title="Open T3 · drag to move">
+        <span className="dot idle" /> T3
+      </button>
+    );
+  }
   const items = [
     ...asking.map((t) => ({ t, kind: "ask" as const })),
     ...unread.map((t) => ({ t, kind: "new" as const })),

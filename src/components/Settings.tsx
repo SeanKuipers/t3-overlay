@@ -228,14 +228,6 @@ export function Settings() {
           <input type="checkbox" checked={config.openOnGameEnd} onChange={(e) => set("openOnGameEnd", e.target.checked)} />
           Open the inbox when the game ends
         </label>
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={config.tickerOutsideGame}
-            onChange={(e) => set("tickerOutsideGame", e.target.checked)}
-          />
-          Show the ticker outside of games too
-        </label>
         <div className="row">
           <label>
             Show threads active in the last
