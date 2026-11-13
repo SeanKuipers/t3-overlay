@@ -38,7 +38,7 @@ pub struct Config {
     pub settings_version: u32,
 }
 
-const SETTINGS_VERSION: u32 = 1;
+const SETTINGS_VERSION: u32 = 2;
 
 impl Config {
     /// Brings settings saved by an older version up to date. Returns true if anything changed.
@@ -49,6 +49,10 @@ impl Config {
         // v1: show far fewer threads. 12 hours was the old default; keep any value chosen by hand.
         if self.settings_version < 1 && self.recent_hours == 12 {
             self.recent_hours = 2;
+        }
+        // v2: the ticker is clickable now, so show it outside games too.
+        if self.settings_version < 2 {
+            self.ticker_outside_game = true;
         }
         self.settings_version = SETTINGS_VERSION;
         true
@@ -66,7 +70,7 @@ impl Default for Config {
             hotkey_next: "Ctrl+Shift+E".into(),
             open_on_death: true,
             open_on_game_end: true,
-            ticker_outside_game: false,
+            ticker_outside_game: true,
             recent_hours: 2,
             poll_seconds: 4,
             send_mode: "queue".into(),

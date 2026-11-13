@@ -247,7 +247,26 @@ export function Overlay() {
   }, []);
   const notices: NoticeView[] = updateNotice ? [updateNotice, ...t3.notices] : t3.notices;
 
-  const showTicker = !visible && (game.inGame || !!config?.tickerOutsideGame);
+  // The ticker stays up while the inbox is open too, so it's always there to click.
+  const showTicker = game.inGame || !!config?.tickerOutsideGame;
+
+  // Clicking the ticker or a notice opens that thread in the inbox, ready to reply.
+  const openThread = useCallback(
+    (threadId: string) => {
+      setSelectedId(threadId);
+      setPinned(true);
+      focusInput();
+    },
+    [focusInput],
+  );
+  const openNotice = useCallback(
+    (notice: NoticeView) => {
+      if (typeof notice.id === "number") t3.dismissNotice(notice.id);
+      else setUpdateNotice(null);
+      if (notice.threadId) openThread(notice.threadId);
+    },
+    [t3.dismissNotice, openThread],
+  );
 
   useHitRegions([visible, t3.threads.length, selectedId, sending]);
 
@@ -255,8 +274,15 @@ export function Overlay() {
 
   return (
     <div className="overlay-root">
-      {showTicker && <Ticker threads={t3.threads} connected={!!t3.status?.connected} />}
-      {!visible && <Notices notices={notices} />}
+      {showTicker && (
+        <Ticker
+          threads={t3.threads}
+          connected={!!t3.status?.connected}
+          onOpen={openThread}
+          onOpenSettings={() => native.openSettings()}
+        />
+      )}
+      {!visible && <Notices notices={notices} onOpen={openNotice} />}
       {visible && (
         <Inbox
           threads={t3.threads}

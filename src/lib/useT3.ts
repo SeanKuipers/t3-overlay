@@ -145,5 +145,9 @@ export function useT3(pollSeconds: number, recentHours: number) {
     [refresh],
   );
 
-  return { status, threads, error, notices, markRead, send, refresh };
+  const dismissNotice = useCallback((id: number | string) => {
+    setNotices((n) => n.filter((x) => x.id !== id));
+  }, []);
+
+  return { status, threads, error, notices, markRead, send, refresh, dismissNotice };
 }

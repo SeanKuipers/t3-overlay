@@ -126,6 +126,40 @@ html[data-view="overlay"] body {
   white-space: nowrap;
   overflow: hidden;
 }
+button.ticker,
+.ticker-open,
+.notice {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+button.ticker {
+  border: 0;
+}
+.ticker-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  min-width: 0;
+}
+.ticker-open:hover b,
+.ticker-open:hover {
+  text-decoration: underline;
+}
+.notice {
+  display: block;
+  width: 100%;
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+}
+.notice:hover {
+  filter: brightness(1.15);
+}
 .ticker-item {
   display: inline-flex;
   align-items: center;
