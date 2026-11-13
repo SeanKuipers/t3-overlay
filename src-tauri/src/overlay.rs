@@ -102,7 +102,7 @@ pub fn release_focus(app: &AppHandle) {
 #[cfg(windows)]
 mod platform {
     use tauri::WebviewWindow;
-    use windows::core::w;
+    use windows::core::{w, PCWSTR};
     use windows::Win32::Foundation::HWND;
     use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
     use windows::Win32::UI::WindowsAndMessaging::{
@@ -111,8 +111,13 @@ mod platform {
         GWL_EXSTYLE, SW_SHOW, WS_EX_TOOLWINDOW,
     };
 
+    /// Tauri's HWND comes from its own `windows` crate version; convert via the raw pointer.
+    fn raw(window: &WebviewWindow) -> Option<HWND> {
+        window.hwnd().ok().map(|h| HWND(h.0 as *mut core::ffi::c_void))
+    }
+
     pub fn hwnd(window: &WebviewWindow) -> Option<isize> {
-        window.hwnd().ok().map(|h| h.0 as isize)
+        raw(window).map(|h| h.0 as isize)
     }
 
     pub fn foreground() -> Option<isize> {
@@ -122,7 +127,7 @@ mod platform {
 
     /// Keeps the window out of Alt+Tab.
     pub fn make_non_activating(window: &WebviewWindow) {
-        if let Ok(h) = window.hwnd() {
+        if let Some(h) = raw(window) {
             unsafe {
                 let style = GetWindowLongPtrW(h, GWL_EXSTYLE);
                 SetWindowLongPtrW(h, GWL_EXSTYLE, style | WS_EX_TOOLWINDOW.0 as isize);
@@ -133,7 +138,7 @@ mod platform {
     /// Windows only lets the foreground thread change focus. Briefly attaching to its input
     /// queue lets us take focus right after a global hotkey.
     pub fn force_focus(window: &WebviewWindow) {
-        let Ok(target) = window.hwnd() else { return };
+        let Some(target) = raw(window) else { return };
         unsafe {
             let fg = GetForegroundWindow();
             let fg_thread = GetWindowThreadProcessId(fg, None);
@@ -157,7 +162,7 @@ mod platform {
                 .map(|h| HWND(h as *mut _))
                 .filter(|h| IsWindow(Some(*h)).as_bool())
                 // Fall back to the League game window.
-                .or_else(|| FindWindowW(w!("RiotWindowClass"), None).ok());
+                .or_else(|| FindWindowW(w!("RiotWindowClass"), PCWSTR::null()).ok());
             if let Some(target) = target {
                 let _ = SetForegroundWindow(target);
             }
