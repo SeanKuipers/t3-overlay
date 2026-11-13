@@ -22,13 +22,17 @@ export function Overlay() {
   const update = useUpdate();
   const t3 = useT3(config?.pollSeconds ?? 4, config?.recentHours ?? 2);
 
-  // Open until you send a message or close it (Esc / ×), whether opened by the hotkey or
-  // by dying. Respawning doesn't close it; it only hands keyboard focus back to League.
+  // `pinned`: opened with the hotkey; open until you send, or close it (Esc / × / hotkey).
+  // `deathOpen`: opened because you died. On respawn it closes, unless you've started
+  // typing a reply; then it stays (keyboard back to League) until you send or close it.
   const [pinned, setPinned] = useState(false);
+  const [deathOpen, setDeathOpen] = useState(false);
   const [focused, setFocused] = useState(document.hasFocus());
   const [endDismissed, setEndDismissed] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const draftsRef = useRef(drafts);
+  draftsRef.current = drafts;
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [voice, setVoice] = useState<VoiceView | null>(null);
@@ -36,7 +40,7 @@ export function Overlay() {
   const voiceTarget = useRef<{ id: string; title: string } | null>(null);
   const voiceTimer = useRef<number | undefined>(undefined);
 
-  const visible = pinned || (game.gameEnded && !!config?.openOnGameEnd && !endDismissed);
+  const visible = pinned || deathOpen || (game.gameEnded && !!config?.openOnGameEnd && !endDismissed);
 
   // Keyboard focus tracking.
   useEffect(() => {
@@ -54,9 +58,13 @@ export function Overlay() {
   const prev = useRef(game);
   useEffect(() => {
     const was = prev.current;
-    if (!was.dead && game.dead && config?.openOnDeath) setPinned(true);
-    // Respawned: keep the inbox up, but give the keyboard back so you can play.
-    if (was.dead && !game.dead && document.hasFocus()) native.releaseOverlay();
+    if (!was.dead && game.dead && config?.openOnDeath) setDeathOpen(true);
+    if (was.dead && !game.dead) {
+      // Respawned: close, unless a reply is half-typed. Either way, keyboard back to League.
+      const typing = Object.values(draftsRef.current).some((d) => d.trim());
+      if (!typing) setDeathOpen(false);
+      if (document.hasFocus()) native.releaseOverlay();
+    }
     if (!was.inGame && game.inGame) setEndDismissed(false);
     prev.current = game;
   }, [game, config?.openOnDeath]);
@@ -78,6 +86,7 @@ export function Overlay() {
 
   const close = useCallback(() => {
     setPinned(false);
+    setDeathOpen(false);
     if (game.gameEnded) setEndDismissed(true);
     if (document.hasFocus()) native.releaseOverlay();
   }, [game.gameEnded]);
