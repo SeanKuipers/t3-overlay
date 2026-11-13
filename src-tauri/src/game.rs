@@ -105,6 +105,11 @@ pub fn spawn_watcher(app: AppHandle) {
         let mut last: Option<GameState> = None;
         loop {
             let mut state = poll_once(&http).await;
+            // TFT (and League's loading screen) may not answer the Live Client Data API,
+            // but the game window is the same one: count it as a game.
+            if !state.in_game && platform::game_window_open() {
+                state.in_game = true;
+            }
             state.client_open = platform::client_open();
             // While our own overlay has focus, keep the previous answer.
             state.fullscreen_app = platform::fullscreen_app()
@@ -163,6 +168,15 @@ mod platform {
         }
     }
 
+    /// The game itself (League or TFT, same executable) has the class `RiotWindowClass`.
+    pub fn game_window_open() -> bool {
+        unsafe {
+            FindWindowW(w!("RiotWindowClass"), PCWSTR::null())
+                .map(|h| IsWindowVisible(h).as_bool())
+                .unwrap_or(false)
+        }
+    }
+
     /// The League client's main window (LeagueClientUx) has the class `RCLIENT`.
     pub fn client_open() -> bool {
         unsafe {
@@ -175,6 +189,9 @@ mod platform {
 
 #[cfg(not(windows))]
 mod platform {
+    pub fn game_window_open() -> bool {
+        false
+    }
     pub fn client_open() -> bool {
         false
     }
