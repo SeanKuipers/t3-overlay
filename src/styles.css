@@ -1292,8 +1292,9 @@ html[data-mock][data-view="overlay"] body {
 
 /* ---------- right-click menu ---------- */
 .context-menu {
-  position: absolute;
-  z-index: 50;
+  /* Always above everything in the overlay (inbox, hub, chat pane, ticker). */
+  position: fixed;
+  z-index: 10000;
   min-width: 190px;
   padding: 4px;
   border-radius: 10px;
