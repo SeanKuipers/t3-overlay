@@ -22,6 +22,8 @@ interface Props extends Omit<ConversationProps, "thread" | "threadCount" | "foot
   onNewChat: () => void;
   onStartChat: (projectId: string | null, message: string) => Promise<void>;
   onCancelNewChat: () => void;
+  /** Right-click on a tab. */
+  onThreadMenu: (threadId: string, x: number, y: number) => void;
 }
 
 // ---------- position: draggable by the tab bar, remembered between games ----------
@@ -150,6 +152,10 @@ export function Inbox(props: Props) {
               ref={t.threadId === selected?.threadId ? selectedTabRef : undefined}
               className={`tab${!props.composing && t.threadId === selected?.threadId ? " on" : ""}`}
               onClick={() => props.onSelect(t.threadId)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                props.onThreadMenu(t.threadId, e.clientX, e.clientY);
+              }}
               title={`${t.projectTitle} · ${t.title}`}
             >
               <span className={dotClass(t)} />

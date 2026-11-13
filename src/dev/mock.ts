@@ -98,7 +98,7 @@ export async function installMock(scenario: string) {
   const game =
     scenario === "hub" || scenario === "hubchat" || scenario === "hubrun" || scenario === "hubask" || scenario === "newhub"
       ? { inGame: false, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 0, clientOpen: true, fullscreenApp: false }
-      : scenario === "dead" || scenario === "mini" || scenario === "newinbox"
+      : scenario === "dead" || scenario === "mini" || scenario === "newinbox" || scenario === "menu"
       ? { inGame: true, dead: true, respawnSeconds: 23, gameEnded: false, gameTime: 1085 }
       : scenario === "ended"
         ? { inGame: true, dead: false, respawnSeconds: 0, gameEnded: true, gameTime: 1900 }
@@ -109,6 +109,12 @@ export async function installMock(scenario: string) {
     if (scenario === "voice") emit("voice://state", { phase: "recording" });
     if (scenario === "newhub") setTimeout(() => document.querySelector<HTMLButtonElement>(".hub-icon.plus")?.click(), 600);
     if (scenario === "newinbox") setTimeout(() => document.querySelector<HTMLButtonElement>(".new-tab")?.click(), 600);
+    if (scenario === "menu")
+      setTimeout(() => {
+        const tab = document.querySelectorAll<HTMLElement>(".tab")[1];
+        const r = tab?.getBoundingClientRect();
+        tab?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: (r?.x ?? 0) + 20, clientY: (r?.y ?? 0) + 20 }));
+      }, 700);
     if (scenario === "mini") setTimeout(() => document.querySelector<HTMLButtonElement>(".close.minimize")?.click(), 600);
     if (scenario === "hubchat" || scenario === "hubrun" || scenario === "hubask") setTimeout(() => emit("hotkey://inbox", null), 400);
   }, 300);

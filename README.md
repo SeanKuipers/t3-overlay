@@ -54,6 +54,7 @@ The overlay keeps running in the system tray. Right-click the tray icon to open 
 | Switch threads | `Ctrl+Shift+Q` / `Ctrl+Shift+E` | Previous / next thread. Only active while the inbox is open, so League keeps these keys otherwise. Scrolling the mouse wheel over the tabs does the same. |
 | In the inbox | `Enter` / `Ctrl+Enter` | **Queue**: runs as the agent's next turn. **Steer**: joins the turn it's working on right now. Swap them in Settings → Sending. |
 | | `Shift+Enter` / `Tab` / `Esc` | New line / next thread / close |
+| | Right-click a tab | **Close tab** hides the thread from the overlay until the agent replies again or asks something. Also **Close other tabs**, **Mark as read** and **Reopen closed tabs**. The same menu works on threads in the hub. |
 | | **–** (next to ×) | Minimizes the inbox to a notification-sized pill. The pill keeps your draft and the respawn timer. Click it to expand, or click its × to close. While it's minimized, League gets `Esc` and the thread keys back. |
 | | Hold `Ctrl` | The send button shows ≡+ (queue) by default and switches to ↱ (steer) while you hold Ctrl, like T3. Queued messages are listed above the reply box, each with **Steer** (send it into the running turn now) and **×** (drop it). |
 

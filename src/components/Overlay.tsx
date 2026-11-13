@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { errorMessage, native, on, type Config, type SendMode, type VoiceEvent } from "../lib/native";
 import { isWorking } from "../lib/t3";
 import { useGame } from "../lib/useGame";
@@ -12,8 +12,10 @@ import { Inbox } from "./Inbox";
 import { Notices, type NoticeView } from "./Notices";
 import { Ticker } from "./Ticker";
 import { VoiceHud, type VoiceView } from "./VoiceHud";
+import { ContextMenu, type MenuState } from "./ContextMenu";
 
 const DRAFTS_KEY = "t3-overlay:drafts";
+const CLOSED_KEY = "t3-overlay:closed";
 
 export function Overlay() {
   const [config, setConfig] = useState<Config | null>(null);
@@ -33,6 +35,33 @@ export function Overlay() {
   const game = useGame();
   const update = useUpdate();
   const t3 = useT3(config?.pollSeconds ?? 4, config?.recentHours ?? 2);
+
+  // Closed tabs: hidden from the overlay until the agent replies again or asks something.
+  // threadId → the reply that was showing when you closed it.
+  const [closed, setClosed] = useState<Record<string, string | null>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(CLOSED_KEY) ?? "{}");
+    } catch {
+      return {};
+    }
+  });
+  useEffect(() => localStorage.setItem(CLOSED_KEY, JSON.stringify(closed)), [closed]);
+  const isClosed = useCallback(
+    (t: (typeof t3.threads)[number]) =>
+      t.threadId in closed && closed[t.threadId] === (t.conversation?.replyKey ?? null) && t.questions.length === 0,
+    [closed],
+  );
+  const threads = useMemo(() => t3.threads.filter((t) => !isClosed(t)), [t3.threads, isClosed]);
+  // Forget closed tabs that came back (new reply / question) or dropped off the list.
+  useEffect(() => {
+    const stale = Object.keys(closed).filter((id) => {
+      const t = t3.threads.find((x) => x.threadId === id);
+      return t ? !isClosed(t) : t3.threads.length > 0;
+    });
+    if (stale.length > 0)
+      setClosed((c) => Object.fromEntries(Object.entries(c).filter(([id]) => !stale.includes(id))));
+  }, [t3.threads, closed, isClosed]);
+  const closedCount = t3.threads.length - threads.length;
 
   // `pinned`: opened with the hotkey; open until you send, or close it (Esc / × / hotkey).
   // `deathOpen`: opened because you died. On respawn it closes, unless you've started
@@ -129,13 +158,13 @@ export function Overlay() {
 
   // Keep a valid selection: first unread, else the newest thread.
   useEffect(() => {
-    if (t3.threads.length === 0) return;
-    if (!selectedId || !t3.threads.some((t) => t.threadId === selectedId)) {
-      setSelectedId((t3.threads.find((t) => t.unread) ?? t3.threads[0]).threadId);
+    if (threads.length === 0) return;
+    if (!selectedId || !threads.some((t) => t.threadId === selectedId)) {
+      setSelectedId((threads.find((t) => t.unread) ?? threads[0]).threadId);
     }
-  }, [t3.threads, selectedId]);
+  }, [threads, selectedId]);
 
-  const selected = t3.threads.find((t) => t.threadId === selectedId) ?? null;
+  const selected = threads.find((t) => t.threadId === selectedId) ?? null;
 
   // Reading a thread in the open inbox marks it read.
   useEffect(() => {
@@ -206,12 +235,12 @@ export function Overlay() {
 
   const cycle = useCallback(
     (step: number) => {
-      if (t3.threads.length === 0) return;
-      const index = t3.threads.findIndex((t) => t.threadId === selectedId);
-      const next = (index + step + t3.threads.length) % t3.threads.length;
-      setSelectedId(t3.threads[next].threadId);
+      if (threads.length === 0) return;
+      const index = threads.findIndex((t) => t.threadId === selectedId);
+      const next = (index + step + threads.length) % threads.length;
+      setSelectedId(threads[next].threadId);
     },
-    [t3.threads, selectedId],
+    [threads, selectedId],
   );
   useEffect(() => on<number>("hotkey://cycle", (step) => cycle(step)), [cycle]);
 
@@ -221,11 +250,11 @@ export function Overlay() {
       const base = config?.sendMode ?? "queue";
       const mode: SendMode = alternate ? (base === "steer" ? "queue" : "steer") : base;
       // Nothing to steer when the agent isn't working: just start the turn.
-      const thread = t3.threads.find((t) => t.threadId === threadId);
+      const thread = threads.find((t) => t.threadId === threadId);
       if (mode === "steer" && thread && !isWorking(thread.status)) return "auto";
       return mode;
     },
-    [config?.sendMode, t3.threads],
+    [config?.sendMode, threads],
   );
 
   const sendTo = useCallback(
@@ -257,8 +286,8 @@ export function Overlay() {
   }, [selected, drafts, sendTo, inGameMode, close]);
 
   // Voice: Hex records while the key is held; the transcript goes to the target thread.
-  const threadsRef = useRef(t3.threads);
-  threadsRef.current = t3.threads;
+  const threadsRef = useRef(threads);
+  threadsRef.current = threads;
   const visibleRef = useRef(viewing);
   visibleRef.current = viewing;
   const selectedRef = useRef(selected);
@@ -338,6 +367,11 @@ export function Overlay() {
   // Clicking the ticker or a notice opens that thread in the inbox, ready to reply.
   const openThread = useCallback(
     (threadId: string) => {
+      setClosed((c) => {
+        if (!(threadId in c)) return c;
+        const { [threadId]: _, ...rest } = c;
+        return rest;
+      });
       setSelectedId(threadId);
       setMinimized(false);
       if (hubShown) setHubChat(true);
@@ -364,9 +398,44 @@ export function Overlay() {
   );
   const cancelNewChat = useCallback(() => {
     setComposing(false);
-    if (t3.threads.length === 0) (hubShown ? closeHubChat() : close());
-  }, [t3.threads.length, hubShown, closeHubChat, close]);
+    if (threads.length === 0) (hubShown ? closeHubChat() : close());
+  }, [threads.length, hubShown, closeHubChat, close]);
   const newChatProps = { composing, onNewChat: newChat, onStartChat: startChat, onCancelNewChat: cancelNewChat };
+
+  // Right-click a tab / hub row.
+  const [menu, setMenu] = useState<MenuState | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
+  const onThreadMenu = useCallback(
+    (threadId: string, x: number, y: number) => {
+      const t = threads.find((x) => x.threadId === threadId);
+      if (!t) return;
+      const closeTabs = (ids: string[]) =>
+        setClosed((c) => ({
+          ...c,
+          ...Object.fromEntries(
+            ids.map((id) => [id, threads.find((x) => x.threadId === id)?.conversation?.replyKey ?? null]),
+          ),
+        }));
+      setMenu({
+        x,
+        y,
+        items: [
+          { label: "Close tab", hint: "until it replies", onClick: () => closeTabs([threadId]) },
+          {
+            label: "Close other tabs",
+            disabled: threads.length < 2,
+            onClick: () => closeTabs(threads.filter((x) => x.threadId !== threadId).map((x) => x.threadId)),
+          },
+          ...(t.unread ? [{ label: "Mark as read", onClick: () => t3.markRead(threadId) }] : []),
+          ...(closedCount > 0
+            ? [{ label: `Reopen closed tabs (${closedCount})`, onClick: () => setClosed({}) }]
+            : []),
+        ],
+      });
+      native.focusOverlay();
+    },
+    [threads, closedCount, t3.markRead],
+  );
 
   // The ticker toggles: clicking it again closes what it opened.
   const closeView = () => (hubShown ? closeHubChat() : close());
@@ -380,7 +449,7 @@ export function Overlay() {
     [t3.dismissNotice, openThread],
   );
 
-  useHitRegions([corner.pos, corner.dragging, inboxVisible, minimized, hubShown, hubChat, t3.threads.length, selectedId, sending]);
+  useHitRegions([menu, corner.pos, corner.dragging, inboxVisible, minimized, hubShown, hubChat, threads.length, selectedId, sending]);
 
   const draft = selected ? drafts[selected.threadId] ?? "" : "";
 
@@ -407,13 +476,13 @@ export function Overlay() {
         onClickCapture={corner.onClickCapture}
       >
         <Ticker
-          threads={t3.threads}
+          threads={threads}
           connected={!!t3.status?.connected}
           onOpen={(id) => (viewing && id === selectedId ? closeView() : openThread(id))}
           onOpenSettings={() => native.openSettings()}
           onOpenAny={() => {
             if (viewing) return closeView();
-            const id = selectedId ?? t3.threads[0]?.threadId;
+            const id = selectedId ?? threads[0]?.threadId;
             if (id) openThread(id);
             else if (hubShown) setHubChat(true);
             else setPinned(true);
@@ -423,7 +492,7 @@ export function Overlay() {
       </div>
       {hubShown && (
         <Hub
-          threads={t3.threads}
+          threads={threads}
           selected={selected}
           chatOpen={hubChat}
           connected={!!t3.status?.connected}
@@ -448,11 +517,12 @@ export function Overlay() {
           onUnqueue={onUnqueue}
           onAnswer={onAnswer}
           {...newChatProps}
+          onThreadMenu={onThreadMenu}
         />
       )}
       {inboxVisible && (
         <Inbox
-          threads={t3.threads}
+          threads={threads}
           selected={selected}
           connected={!!t3.status?.connected}
           error={t3.error}
@@ -479,9 +549,11 @@ export function Overlay() {
           onUnqueue={onUnqueue}
           onAnswer={onAnswer}
           {...newChatProps}
+          onThreadMenu={onThreadMenu}
         />
       )}
       {voice && <VoiceHud voice={voice} />}
+      {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
       {!inboxExpanded && <UpdatePill status={update.status} />}
     </div>
   );

@@ -58,6 +58,7 @@ interface Props extends Omit<ConversationProps, "thread" | "threadCount" | "foot
   onNewChat: () => void;
   onStartChat: (projectId: string | null, message: string) => Promise<void>;
   onCancelNewChat: () => void;
+  onThreadMenu: (threadId: string, x: number, y: number) => void;
 }
 
 export function Hub(props: Props) {
@@ -136,6 +137,10 @@ export function Hub(props: Props) {
                 key={t.threadId}
                 className={`rail-item${chatOpen && t.threadId === selected?.threadId ? " on" : ""}`}
                 onClick={() => open(t.threadId)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  props.onThreadMenu(t.threadId, e.clientX, e.clientY);
+                }}
                 title={`${t.title} · ${t.projectTitle}`}
               >
                 <Avatar thread={t} />
@@ -187,6 +192,10 @@ export function Hub(props: Props) {
                   key={t.threadId}
                   className={`hub-row${chatOpen && !props.composing && t.threadId === selected?.threadId ? " on" : ""}${t.unread ? " unread" : ""}`}
                   onClick={() => open(t.threadId)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    props.onThreadMenu(t.threadId, e.clientX, e.clientY);
+                  }}
                   title={`${t.projectTitle} · ${t.title}`}
                 >
                   <Avatar thread={t} />

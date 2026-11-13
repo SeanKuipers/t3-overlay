@@ -15,6 +15,11 @@ if (mock) {
   await (await import("./dev/mock")).installMock(mock);
 }
 
+if (view === "overlay") {
+  // The overlay has its own right-click menu; never show the browser's (Back, Reload, Inspect…).
+  window.addEventListener("contextmenu", (e) => e.preventDefault());
+}
+
 if (view === "overlay" && !mock) {
   // Anything that goes wrong in the (invisible-when-broken) overlay page shows up in
   // Settings → Diagnostics.
