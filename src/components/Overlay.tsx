@@ -98,6 +98,11 @@ export function Overlay() {
     [visible, close, focusInput],
   );
 
+  // Thread-switching hotkeys exist only while the inbox is open.
+  useEffect(() => {
+    native.setNavHotkeys(visible);
+  }, [visible]);
+
   const cycle = useCallback(
     (step: number) => {
       if (t3.threads.length === 0) return;
@@ -107,6 +112,7 @@ export function Overlay() {
     },
     [t3.threads, selectedId],
   );
+  useEffect(() => on<number>("hotkey://cycle", (step) => cycle(step)), [cycle]);
 
   const sendTo = useCallback(
     async (threadId: string, text: string) => {
@@ -235,6 +241,7 @@ export function Overlay() {
           focused={focused}
           inputRef={inputRef}
           voiceHotkey={config?.voiceEnabled ? config.hotkeyVoice : null}
+          navHotkeys={config && config.hotkeyPrev && config.hotkeyNext ? [config.hotkeyPrev, config.hotkeyNext] : null}
           onSelect={setSelectedId}
           onCycle={cycle}
           onDraft={(text) => selected && setDrafts((d) => ({ ...d, [selected.threadId]: text }))}

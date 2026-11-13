@@ -177,14 +177,11 @@ html[data-view="overlay"] body {
   }
 }
 
-/* inbox: compact, top-centre, so the shop stays usable while dead */
+/* inbox: on the left by default (shop stays usable), draggable by the tab bar */
 .inbox {
   position: absolute;
-  left: 50%;
-  top: 7vh;
-  transform: translateX(-50%);
-  width: min(640px, 92vw);
-  max-height: 52vh;
+  width: min(500px, 92vw);
+  max-height: 62vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -194,22 +191,53 @@ html[data-view="overlay"] body {
 @keyframes drop-in {
   from {
     opacity: 0;
-    transform: translate(-50%, -8px);
+    transform: translateY(-8px);
   }
+}
+.inbox.dragging {
+  animation: none;
+  opacity: 0.92;
+}
+.drag-shield {
+  position: fixed;
+  inset: 0;
+  cursor: grabbing;
 }
 .tabs {
   display: flex;
   align-items: center;
   gap: 2px;
   padding: 6px 6px 0;
-  overflow: hidden;
+  cursor: grab;
+}
+.inbox.dragging .tabs {
+  cursor: grabbing;
+}
+.grip {
+  color: var(--muted);
+  opacity: 0.6;
+  padding: 0 4px 2px 2px;
+  font-size: 14px;
+  user-select: none;
+}
+.tab-strip {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tab-strip::-webkit-scrollbar {
+  display: none;
 }
 .tab {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
-  max-width: 170px;
+  max-width: 150px;
   padding: 6px 10px;
   border: 0;
   border-radius: 7px 7px 0 0;
@@ -335,7 +363,18 @@ html[data-view="overlay"] body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px;
+  padding: 8px 8px 6px;
+}
+.hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 0 10px 8px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.hints .key {
+  margin-right: 3px;
 }
 .composer textarea {
   flex: 1;

@@ -14,6 +14,9 @@ pub struct Config {
     /// Hold to dictate with Hex, release to send.
     pub hotkey_voice: String,
     pub voice_enabled: bool,
+    /// Switch threads. Only registered while the inbox is open.
+    pub hotkey_prev: String,
+    pub hotkey_next: String,
     /// Open the inbox automatically while your champion is dead.
     pub open_on_death: bool,
     /// Open the inbox when the game ends and keep it open until dismissed.
@@ -35,6 +38,8 @@ impl Default for Config {
             hotkey_inbox: "Ctrl+Shift+Space".into(),
             hotkey_voice: "Ctrl+Shift+V".into(),
             voice_enabled: true,
+            hotkey_prev: "Ctrl+Shift+Q".into(),
+            hotkey_next: "Ctrl+Shift+E".into(),
             open_on_death: true,
             open_on_game_end: true,
             ticker_outside_game: false,

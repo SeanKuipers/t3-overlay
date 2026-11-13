@@ -25,12 +25,16 @@ struct AppState {
     hex: hex::Hex,
     hotkeys: Mutex<Hotkeys>,
     recording: AtomicBool,
+    /// The inbox is open, so the thread-switching hotkeys are registered.
+    nav_active: AtomicBool,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct Hotkeys {
     inbox: Option<Shortcut>,
     voice: Option<Shortcut>,
+    prev: Option<Shortcut>,
+    next: Option<Shortcut>,
 }
 
 #[derive(Serialize, Clone)]
@@ -162,6 +166,23 @@ fn open_settings(app: AppHandle) -> Result<(), String> {
     show_settings(&app).map_err(|e| e.to_string())
 }
 
+/// Thread-switching hotkeys only exist while the inbox is open, so they never take keys
+/// away from League the rest of the time.
+#[tauri::command]
+fn set_nav_hotkeys(app: AppHandle, state: State<'_, AppState>, active: bool) {
+    if state.nav_active.swap(active, Ordering::SeqCst) == active {
+        return;
+    }
+    let hotkeys = state.hotkeys.lock().unwrap().clone();
+    let gs = app.global_shortcut();
+    for shortcut in [hotkeys.prev, hotkeys.next].into_iter().flatten() {
+        let result = if active { gs.register(shortcut) } else { gs.unregister(shortcut) };
+        if let Err(e) = result {
+            log::warn!("thread hotkey {shortcut:?}: {e}");
+        }
+    }
+}
+
 #[tauri::command]
 fn set_overlay_busy(updates: State<'_, update::Updates>, busy: bool) {
     updates.overlay_busy.store(busy, Ordering::SeqCst);
@@ -216,29 +237,40 @@ fn register_hotkeys(app: &AppHandle, config: &Config) -> Result<(), String> {
     } else {
         None
     };
-    if inbox.is_some() && inbox == voice {
-        return Err("The inbox and voice hotkeys must be different.".into());
+    let prev = parse_shortcut(&config.hotkey_prev, "previous thread")?;
+    let next = parse_shortcut(&config.hotkey_next, "next thread")?;
+    let all: Vec<Shortcut> = [inbox, voice, prev, next].into_iter().flatten().collect();
+    for (i, a) in all.iter().enumerate() {
+        if all[i + 1..].contains(a) {
+            return Err("Each hotkey must be different.".into());
+        }
     }
+    let state = app.state::<AppState>();
     let gs = app.global_shortcut();
     let _ = gs.unregister_all();
-    for shortcut in [inbox, voice].into_iter().flatten() {
+    let mut active = vec![inbox, voice];
+    if state.nav_active.load(Ordering::SeqCst) {
+        active.extend([prev, next]);
+    }
+    for shortcut in active.into_iter().flatten() {
         gs.register(shortcut)
             .map_err(|e| format!("Could not register {shortcut:?} (another app may use it): {e}"))?;
     }
-    let state = app.state::<AppState>();
-    *state.hotkeys.lock().unwrap() = Hotkeys { inbox, voice };
+    *state.hotkeys.lock().unwrap() = Hotkeys { inbox, voice, prev, next };
     Ok(())
 }
 
 fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, pressed: bool) {
     let state = app.state::<AppState>();
-    let (is_inbox, is_voice) = {
-        let hk = state.hotkeys.lock().unwrap();
-        (hk.inbox.as_ref() == Some(shortcut), hk.voice.as_ref() == Some(shortcut))
-    };
-    if is_inbox && pressed {
+    let hk = state.hotkeys.lock().unwrap().clone();
+    let is = |s: &Option<Shortcut>| s.as_ref() == Some(shortcut);
+    if is(&hk.inbox) && pressed {
         let _ = app.emit("hotkey://inbox", ());
-    } else if is_voice {
+    } else if is(&hk.prev) && pressed {
+        let _ = app.emit("hotkey://cycle", -1);
+    } else if is(&hk.next) && pressed {
+        let _ = app.emit("hotkey://cycle", 1);
+    } else if is(&hk.voice) {
         if pressed {
             voice_start(app);
         } else {
@@ -353,6 +385,7 @@ pub fn run() {
                 hex: hex::Hex::new(),
                 hotkeys: Mutex::new(Hotkeys::default()),
                 recording: AtomicBool::new(false),
+                nav_active: AtomicBool::new(false),
             });
             app.manage(update::Updates::new(config.auto_update, &handle));
             if let Err(e) = register_hotkeys(&handle, &config) {
@@ -382,6 +415,7 @@ pub fn run() {
             hex_status,
             voice_cancel,
             set_overlay_busy,
+            set_nav_hotkeys,
             update_status,
             update_check,
             take_update_notice,

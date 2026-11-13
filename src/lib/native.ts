@@ -7,6 +7,8 @@ export interface Config {
   hotkeyInbox: string;
   hotkeyVoice: string;
   voiceEnabled: boolean;
+  hotkeyPrev: string;
+  hotkeyNext: string;
   openOnDeath: boolean;
   openOnGameEnd: boolean;
   tickerOutsideGame: boolean;
@@ -71,6 +73,7 @@ export const native = {
   openSettings: () => invoke<void>("open_settings"),
   hexStatus: () => invoke<string>("hex_status"),
   voiceCancel: () => invoke<void>("voice_cancel"),
+  setNavHotkeys: (active: boolean) => invoke<void>("set_nav_hotkeys", { active }),
   setOverlayBusy: (busy: boolean) => invoke<void>("set_overlay_busy", { busy }),
   updateStatus: () => invoke<UpdateStatus>("update_status"),
   updateCheck: () => invoke<void>("update_check"),

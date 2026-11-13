@@ -5,7 +5,7 @@
 Read and answer your [T3 Code](https://t3.codes) agents while playing League of Legends, without alt-tabbing.
 
 - **While you're alive:** a small ticker in the corner shows which agents are working and which have replied. When an agent finishes, the first line of its reply pops up for a few seconds.
-- **While you're dead:** the **Respawn Inbox** opens at the top-center of the screen. It shows your last message, the agent's reply, and a reply box, with a bar counting down to your respawn. It closes again when you respawn.
+- **While you're dead:** the **Respawn Inbox** opens on the left of the screen, clear of the shop. Drag it by its tab bar to wherever suits your HUD; double-click the tab bar to put it back. It shows your last message, the agent's reply, and a reply box, with a bar counting down to your respawn. It closes again when you respawn.
 - **Reply by typing or by voice:** hold a key, talk, and let go. [Hex](https://github.com/anomalyco/hex) turns your speech into text and the overlay sends it to the thread.
 
 <p>
@@ -45,6 +45,7 @@ The overlay keeps running in the system tray. Right-click the tray icon to open 
 |---|---|---|
 | Open / close inbox | `Ctrl+Shift+Space` | Opens the inbox at any time and focuses the reply box. Press again or `Esc` to go back to the game. |
 | Hold to talk | `Ctrl+Shift+V` | Hold it, speak, release. The text is sent to the thread open in the inbox. If the inbox is closed, it goes to the newest unread thread, or else the most recently active one. |
+| Switch threads | `Ctrl+Shift+Q` / `Ctrl+Shift+E` | Previous / next thread. Only active while the inbox is open, so League keeps these keys otherwise. Scrolling the mouse wheel over the tabs does the same. |
 | In the inbox | `Enter` / `Shift+Enter` / `Tab` / `Esc` | Send / new line / next thread / close |
 
 All hotkeys can be changed in Settings. After you send a message, focus goes straight back to League.

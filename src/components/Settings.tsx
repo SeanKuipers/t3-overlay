@@ -150,6 +150,18 @@ export function Settings() {
           Open / close inbox
           <HotkeyInput value={config.hotkeyInbox} onChange={(v) => set("hotkeyInbox", v)} />
         </label>
+        <label>
+          Previous thread
+          <HotkeyInput value={config.hotkeyPrev} onChange={(v) => set("hotkeyPrev", v)} />
+        </label>
+        <label>
+          Next thread
+          <HotkeyInput value={config.hotkeyNext} onChange={(v) => set("hotkeyNext", v)} />
+        </label>
+        <p className="hint">
+          These two only work while the inbox is open; the rest of the time League keeps those keys. Scrolling over the
+          tabs switches threads too.
+        </p>
         <label className="check">
           <input type="checkbox" checked={config.voiceEnabled} onChange={(e) => set("voiceEnabled", e.target.checked)} />
           Voice replies with Hex
