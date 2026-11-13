@@ -34,7 +34,7 @@ export async function installMock(scenario: string) {
       const args = payload as Record<string, any>;
       switch (cmd) {
         case "get_config":
-          return { serverUrl: "http://100.88.0.1:3773", hotkeyInbox: "Ctrl+Shift+Space", hotkeyVoice: "Ctrl+Shift+V", voiceEnabled: true, hotkeyPrev: "Ctrl+Shift+Q", hotkeyNext: "Ctrl+Shift+E", openOnDeath: true, openOnGameEnd: true, tickerOutsideGame: true, recentHours: 2, pollSeconds: 4, autoUpdate: true, sendMode: "queue", hubMode: "client", settingsVersion: 2 };
+          return { serverUrl: "http://100.88.0.1:3773", hotkeyInbox: "Ctrl+Shift+Space", hotkeyVoice: "Ctrl+Shift+V", voiceEnabled: true, hotkeyPrev: "Ctrl+Shift+Q", hotkeyNext: "Ctrl+Shift+E", openOnDeath: true, openOnGameEnd: true, tickerOutsideGame: true, recentHours: 2, pollSeconds: 4, autoUpdate: true, launchAtLogin: true, sendMode: "queue", hubMode: "client", settingsVersion: 2 };
         case "t3_status":
           return { serverUrl: "http://100.88.0.1:3773", connected: true, expiresAtMs: now + 29 * 86_400_000 };
         case "t3_call": {
@@ -96,7 +96,7 @@ export async function installMock(scenario: string) {
     JSON.stringify(scenario === "hubrun" || scenario === "hubask" ? { t1: "a1@" + iso(1), t3: "a3@" + iso(200) } : { t3: "a3@" + iso(200) }),
   );
   const game =
-    scenario === "hub" || scenario === "hubchat" || scenario === "hubrun" || scenario === "hubask" || scenario === "newhub"
+    scenario === "hub" || scenario === "hubchat" || scenario === "hubrun" || scenario === "hubask" || scenario === "newhub" || scenario === "picker"
       ? { inGame: false, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 0, clientOpen: true, fullscreenApp: false }
       : scenario === "dead" || scenario === "mini" || scenario === "newinbox" || scenario === "menu"
       ? { inGame: true, dead: true, respawnSeconds: 23, gameEnded: false, gameTime: 1085 }
@@ -107,7 +107,8 @@ export async function installMock(scenario: string) {
     emit("game://state", { ...game, respawnSeconds: game.dead ? 32 : 0 });
     setTimeout(() => emit("game://state", game), 50);
     if (scenario === "voice") emit("voice://state", { phase: "recording" });
-    if (scenario === "newhub") setTimeout(() => document.querySelector<HTMLButtonElement>(".hub-icon.plus")?.click(), 600);
+    if (scenario === "newhub" || scenario === "picker") setTimeout(() => document.querySelector<HTMLButtonElement>(".hub-icon.plus")?.click(), 600);
+    if (scenario === "picker") setTimeout(() => document.querySelector<HTMLButtonElement>(".project-trigger")?.click(), 1100);
     if (scenario === "newinbox") setTimeout(() => document.querySelector<HTMLButtonElement>(".new-tab")?.click(), 600);
     if (scenario === "menu")
       setTimeout(() => {

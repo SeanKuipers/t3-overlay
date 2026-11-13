@@ -1,8 +1,8 @@
 import { useEffect, useState, type RefObject } from "react";
 import { listProjects, type Project } from "../lib/t3";
+import { ProjectPicker, SCRATCH } from "./ProjectPicker";
 
 const LAST_PROJECT_KEY = "t3-overlay:last-project";
-const SCRATCH = "__scratch__";
 
 interface Props {
   /** Pre-selected project (e.g. the open thread's), unless you last picked another. */
@@ -49,18 +49,10 @@ export function NewChat({ suggestedProjectId, inputRef, onStart, onCancel }: Pro
 
   return (
     <div className="new-chat">
-      <label className="new-chat-project">
-        <span>Project</span>
-        <select value={projectId} onChange={(e) => setProjectId(e.target.value)} disabled={busy || !projects}>
-          {!projects && <option value={projectId}>Loading…</option>}
-          {projects?.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.title}
-            </option>
-          ))}
-          <option value={SCRATCH}>No project (scratch folder)</option>
-        </select>
-      </label>
+      <div className="new-chat-project">
+        <span>New chat in</span>
+        <ProjectPicker projects={projects} value={projectId} onChange={setProjectId} disabled={busy} />
+      </div>
       <div className="composer">
         <textarea
           ref={inputRef}

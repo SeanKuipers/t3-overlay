@@ -35,13 +35,15 @@ pub struct Config {
     pub hub_mode: String,
     /// Install new releases automatically when the overlay isn't in use.
     pub auto_update: bool,
+    /// Start T3 Overlay when you sign in to Windows.
+    pub launch_at_login: bool,
     /// Bumped when a default changes, so saved settings can be migrated once.
     /// Missing in files from before versioning, which reads as 0.
     #[serde(default)]
     pub settings_version: u32,
 }
 
-const SETTINGS_VERSION: u32 = 3;
+const SETTINGS_VERSION: u32 = 4;
 
 impl Config {
     /// Brings settings saved by an older version up to date. Returns true if anything changed.
@@ -60,6 +62,10 @@ impl Config {
         // v3: the overlay is always there; the hub shows whenever no game/fullscreen app is up.
         if self.settings_version < 3 && self.hub_mode == "client" {
             self.hub_mode = "always".into();
+        }
+        // v4: start with Windows (new setting, on by default).
+        if self.settings_version < 4 {
+            self.launch_at_login = true;
         }
         self.settings_version = SETTINGS_VERSION;
         true
@@ -83,6 +89,7 @@ impl Default for Config {
             send_mode: "queue".into(),
             hub_mode: "always".into(),
             auto_update: true,
+            launch_at_login: true,
             settings_version: SETTINGS_VERSION,
         }
     }

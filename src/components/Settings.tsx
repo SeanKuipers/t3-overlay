@@ -267,6 +267,14 @@ export function Settings() {
       </section>
 
       <section>
+        <h2>Startup</h2>
+        <label className="check">
+          <input type="checkbox" checked={config.launchAtLogin} onChange={(e) => set("launchAtLogin", e.target.checked)} />
+          Start T3 Overlay with Windows
+        </label>
+      </section>
+
+      <section>
         <h2>Updates</h2>
         <label className="check">
           <input type="checkbox" checked={config.autoUpdate} onChange={(e) => set("autoUpdate", e.target.checked)} />

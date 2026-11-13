@@ -12,6 +12,7 @@ use std::sync::{Arc, Mutex};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_autostart::ManagerExt as _;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use tokio::sync::RwLock;
 
@@ -76,6 +77,7 @@ fn save_config(app: AppHandle, state: State<'_, AppState>, mut config: Config) -
     register_hotkeys(&app, &config)?;
     config::save_config(&app, &config).map_err(|e| e.to_string())?;
     app.state::<update::Updates>().auto.store(config.auto_update, Ordering::SeqCst);
+    apply_launch_at_login(&app, config.launch_at_login);
     *state.config.lock().unwrap() = config.clone();
     let _ = app.emit("config://changed", &config);
     Ok(config)
@@ -271,6 +273,19 @@ async fn voice_cancel(app: AppHandle, state: State<'_, AppState>) -> Result<(), 
     Ok(())
 }
 
+/// Registers (or removes) the "start with Windows" entry. Dev builds never register
+/// themselves, so `npm run app:dev` doesn't end up in your startup apps.
+fn apply_launch_at_login(app: &AppHandle, enabled: bool) {
+    if cfg!(debug_assertions) {
+        return;
+    }
+    let autostart = app.autolaunch();
+    let result = if enabled { autostart.enable() } else { autostart.disable() };
+    if let Err(e) = result {
+        log::warn!("start with Windows: {e}");
+    }
+}
+
 // ---------- hotkeys & voice ----------
 
 fn parse_shortcut(text: &str, what: &str) -> Result<Option<Shortcut>, String> {
@@ -418,6 +433,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
@@ -445,6 +461,7 @@ pub fn run() {
                 nav_active: AtomicBool::new(false),
             });
             app.manage(update::Updates::new(config.auto_update, &handle));
+            apply_launch_at_login(&handle, config.launch_at_login);
             if let Err(e) = register_hotkeys(&handle, &config) {
                 log::warn!("{e}");
             }

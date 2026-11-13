@@ -15,6 +15,7 @@ export interface Config {
   recentHours: number;
   pollSeconds: number;
   autoUpdate: boolean;
+  launchAtLogin: boolean;
   sendMode: SendMode;
   hubMode: "client" | "always" | "off";
   settingsVersion: number;

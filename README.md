@@ -8,7 +8,7 @@ Read and answer your [T3 Code](https://t3.codes) agents while playing League of 
 - **While you're dead:** the **Respawn Inbox** opens on the left of the screen, clear of the shop. Drag it by its tab bar to wherever suits your HUD; double-click the tab bar to put it back. It shows your last message, the agent's reply, and a reply box, with a bar counting down to your respawn. It closes when you respawn, unless you've started typing a reply. In that case it stays open, and gives the keyboard back to League, until you send it or close the inbox with `Esc` or `×`.
 - **Agent questions:** when an agent stops to ask you something, the question shows up with its options. Click one to answer; a single-choice question is answered with that one click, which fits a death timer. The ticker says "<thread> asks", and the hub marks the thread with an orange **Question** label.
 - **Outside games:** a **chat hub** docks on the left. It lists your recent threads with a search box, and opens a conversation beside the list when you click one. Drag its edge to resize it, or collapse it to a thin strip. Its layout follows [OpenBot](https://github.com/CopilotKit/OpenBot)'s sidebar. Settings → Chat hub can limit it to while the League client is open, or turn it off. **TFT** works like League: the TFT client gets the hub, and in a TFT game you get the ticker and the inbox on `Ctrl+Shift+Space`. TFT has no deaths, so the inbox never opens by itself there. The overlay recognizes TFT by its game window, even when Riot's game API doesn't answer. Any other fullscreen app, such as another game, also counts as a game: the hub hides and the ticker and hotkey inbox take over. As with League, run TFT in **Borderless** mode.
-- **Start new chats:** press **+** in the inbox's tab bar or the hub's header, pick a project (or no project), type what the agent should do, and press Enter. The new thread opens right away.
+- **Start new chats:** press **+** in the inbox's tab bar or the hub's header, pick a project from a picker like T3's own (search, arrow keys, **No project**), type what the agent should do, and press Enter. The new thread opens right away.
 - **Reply by typing or by voice:** hold a key, talk, and let go. [Hex](https://github.com/anomalyco/hex) turns your speech into text and the overlay sends it to the thread.
 
 <p>
@@ -43,7 +43,7 @@ A self-built copy also updates itself to the latest release.
 4. For voice, install and start [Hex](https://github.com/anomalyco/hex), then click **Test Hex connection**.
 5. In League, set **Video → Window Mode** to **Borderless**. Overlays can't draw over exclusive fullscreen.
 
-The overlay keeps running in the system tray. Right-click the tray icon to open Settings or quit.
+The overlay keeps running in the system tray and starts with Windows; you can turn that off under **Settings → Startup**. Right-click the tray icon to open Settings or quit.
 
 ## Using it
 
