@@ -452,7 +452,7 @@ button.ticker {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 8px 6px;
+  padding: 8px;
 }
 .hints {
   display: flex;
@@ -461,6 +461,10 @@ button.ticker {
   padding: 0 10px 8px;
   font-size: 11.5px;
   color: var(--muted);
+}
+.head-update {
+  flex-shrink: 0;
+  padding: 0 4px;
 }
 .hints > .update,
 .hints > .update-btn {

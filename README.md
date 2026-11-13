@@ -53,7 +53,7 @@ The overlay keeps running in the system tray. Right-click the tray icon to open 
 | In the inbox | `Enter` / `Ctrl+Enter` | **Queue**: runs as the agent's next turn. **Steer**: joins the turn it's working on right now. Swap them in Settings → Sending. |
 | | `Shift+Enter` / `Tab` / `Esc` | New line / next thread / close |
 | | **–** (next to ×) | Minimizes the inbox to a notification-sized pill. The pill keeps your draft and the respawn timer. Click it to expand, or click its × to close. While it's minimized, League gets `Esc` and the thread keys back. |
-| | Hold `Ctrl` | The send button previews the other mode, like T3: ↱ steer or ≡+ queue. Queued messages are listed above the reply box, each with **Steer** (send it into the running turn now) and **×** (drop it). |
+| | Hold `Ctrl` | The send button shows ≡+ (queue) by default and switches to ↱ (steer) while you hold Ctrl, like T3. Queued messages are listed above the reply box, each with **Steer** (send it into the running turn now) and **×** (drop it). |
 
 All hotkeys can be changed in Settings. After you send a message, typed or spoken, the inbox closes and focus goes straight back to League.
 
@@ -61,7 +61,7 @@ All hotkeys can be changed in Settings. After you send a message, typed or spoke
 
 New versions are published as signed releases. Pushes to `main` only run the checks, and a release is built when the Build workflow is run by hand. The overlay checks for a new one every 5 minutes, downloads it in the background, and installs it silently as soon as you're not using it: inbox closed, not dictating. That works mid-game too. The overlay disappears for a few seconds, comes back on its own without taking focus from League, and briefly shows what changed.
 
-To update right now, even mid-game: open the inbox and click the version in its bottom-right corner. It shows **⬆ update to v…** once a new version is downloaded. **Update now** in the tray menu does the same. To turn automatic updates off, use **Settings → Updates**. Updates are signed, and the overlay refuses any installer that isn't signed with the project's key.
+To update right now, even mid-game: once a new version is downloaded, the inbox's tab bar shows **⬆ update to v…**. Click it to install. **Update now** in the tray menu, or the version at the bottom of the hub, does the same. To turn automatic updates off, use **Settings → Updates**. Updates are signed, and the overlay refuses any installer that isn't signed with the project's key.
 
 ## How it works
 

@@ -2,9 +2,7 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from "rea
 import Markdown from "react-markdown";
 import type { SendMode, UpdateStatus } from "../lib/native";
 import { isWorking } from "../lib/t3";
-import { MODE_HELP, shortKey } from "../lib/threadUi";
 import type { ThreadView } from "../lib/useT3";
-import { UpdateControl } from "./UpdateControl";
 
 export interface ConversationProps {
   thread: ThreadView | null;
@@ -31,12 +29,7 @@ export interface ConversationProps {
   footer?: ReactNode;
 }
 
-// Icons as T3's composer uses them (lucide): send ↑, steer ↱, queue ≡+.
-const ArrowUp = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-    <path d="M7 11.5V2.5M7 2.5L3 6.5M7 2.5L11 6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
+// Icons as T3's composer uses them (lucide): steer ↱, queue ≡+.
 const lucide = { width: 15, height: 15, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
 export const SteerIcon = () => (
   <svg {...lucide}>
@@ -55,19 +48,17 @@ export const QueueIcon = () => (
 );
 
 /**
- * What Enter does right now, the way T3 decides it: an idle agent just starts; a working one
- * gets your default (queue or steer), and holding Ctrl flips it to the other.
+ * What Enter does right now: your default (queue unless set to steer), and holding Ctrl flips
+ * it to the other. (Sending to an agent that isn't working simply starts it either way.)
  */
-function effectiveMode(running: boolean, base: SendMode, alternate: boolean): "send" | "queue" | "steer" {
-  if (!running) return "send";
-  const primary = base === "queue" ? "queue" : "steer";
+function effectiveMode(base: SendMode, alternate: boolean): "queue" | "steer" {
+  const primary = base === "steer" ? "steer" : "queue";
   return alternate ? (primary === "queue" ? "steer" : "queue") : primary;
 }
 
 /** A thread's last exchange plus the reply box. Used by the in-game inbox and the hub. */
 export function Conversation(props: ConversationProps) {
   const { thread } = props;
-  const running = !!thread && isWorking(thread.status);
   const queue = thread?.queue ?? [];
   // Holding Ctrl previews the alternate mode on the send button, like T3.
   const [ctrl, setCtrl] = useState(false);
@@ -81,8 +72,8 @@ export function Conversation(props: ConversationProps) {
       window.removeEventListener("blur", reset);
     };
   }, []);
-  const mode = effectiveMode(running, props.sendMode, ctrl);
-  const altMode = effectiveMode(running, props.sendMode, !ctrl);
+  const mode = effectiveMode(props.sendMode, ctrl);
+  const altMode = effectiveMode(props.sendMode, !ctrl);
   const bodyRef = useRef<HTMLDivElement>(null);
   const lastReplyRef = useRef<HTMLDivElement>(null);
   const conversation = thread?.conversation;
@@ -171,7 +162,7 @@ export function Conversation(props: ConversationProps) {
           ref={props.inputRef}
           rows={1}
           value={props.draft}
-          placeholder={thread ? (running ? `${mode === "queue" ? "Queue" : "Steer"} a message for ${thread.title}…` : `Reply to ${thread.title}…`) : "Reply…"}
+          placeholder={thread ? `Reply to ${thread.title}…` : "Reply…"}
           disabled={!thread || props.sending}
           onChange={(e) => props.onDraft(e.target.value)}
           onKeyDown={onKeyDown}
@@ -181,41 +172,11 @@ export function Conversation(props: ConversationProps) {
           className={`send-btn ${mode}`}
           disabled={!thread || props.sending || !props.draft.trim()}
           onClick={(e) => props.onSubmit(e.ctrlKey || e.metaKey)}
-          title={running ? `Click to ${mode}, Ctrl-click to ${altMode}` : "Send"}
-          aria-label={mode === "queue" ? "Queue message" : mode === "steer" ? "Steer message" : "Send message"}
+          title={`Click to ${mode}, Ctrl-click to ${altMode}`}
+          aria-label={mode === "queue" ? "Queue message" : "Steer message"}
         >
-          {props.sending ? <span className="spinner" /> : mode === "queue" ? <QueueIcon /> : mode === "steer" ? <SteerIcon /> : <ArrowUp />}
+          {props.sending ? <span className="spinner" /> : mode === "queue" ? <QueueIcon /> : <SteerIcon />}
         </button>
-      </div>
-      <div className="hints">
-        {props.sending ? (
-          <span>sending…</span>
-        ) : running ? (
-          <>
-            <span className="mode-hint on" title={MODE_HELP[mode as SendMode]}>
-              <span className="key">↵</span> {mode}
-            </span>
-            <span className="mode-hint" title={MODE_HELP[altMode as SendMode]}>
-              <span className="key">⌃↵</span> {altMode}
-            </span>
-          </>
-        ) : (
-          <span>
-            <span className="key">↵</span> send
-          </span>
-        )}
-        {props.navHotkeys && props.threadCount > 1 && (
-          <span title="Scrolling over the tabs works too">
-            <span className="key">{shortKey(props.navHotkeys[0])}</span>
-            <span className="key">{shortKey(props.navHotkeys[1])}</span> threads
-          </span>
-        )}
-        {props.voiceHotkey && (
-          <span>
-            hold <span className="key">{shortKey(props.voiceHotkey)}</span> talk
-          </span>
-        )}
-        <UpdateControl version={props.update.version} status={props.update.status} />
       </div>
       {props.sendError && <div className="send-error">{props.sendError}</div>}
       {props.footer}

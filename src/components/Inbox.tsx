@@ -3,6 +3,7 @@ import { dotClass } from "../lib/threadUi";
 import { useTicker, type Game } from "../lib/useGame";
 import type { ThreadView } from "../lib/useT3";
 import { Conversation, type ConversationProps } from "./Conversation";
+import { UpdateControl } from "./UpdateControl";
 
 interface Props extends Omit<ConversationProps, "thread" | "threadCount" | "footer"> {
   threads: ThreadView[];
@@ -150,6 +151,12 @@ export function Inbox(props: Props) {
             </button>
           ))}
         </div>
+        {/* Only when there's something to do: a new version is downloading / ready / failed. */}
+        {["downloading", "ready", "installing", "error"].includes(props.update.status.phase) && (
+          <span className="head-update">
+            <UpdateControl version={props.update.version} status={props.update.status} />
+          </span>
+        )}
         {game.dead && <span className="timer">respawn {Math.ceil(remaining)}s</span>}
         {game.gameEnded && !game.dead && <span className="timer ended">game over</span>}
         <button className="close minimize" onClick={props.onMinimize} title="Minimize to a notification">
