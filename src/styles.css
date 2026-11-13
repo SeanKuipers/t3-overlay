@@ -1594,3 +1594,8 @@ html[data-mock][data-view="overlay"] body {
   color: var(--muted);
   white-space: nowrap;
 }
+.logo-mark.update {
+  background: #ffd27a;
+  color: #1a1206;
+  font-size: 13px;
+}

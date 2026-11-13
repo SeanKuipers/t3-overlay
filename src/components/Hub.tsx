@@ -1,3 +1,4 @@
+import { native } from "../lib/native";
 import { isWorking } from "../lib/t3";
 import { dotClass, relativeTimeShort, workingFor } from "../lib/threadUi";
 import { useTicker } from "../lib/useGame";
@@ -104,6 +105,26 @@ export function Hub(props: Props) {
             <b>New chat</b>
           </span>
         </button>
+        {(props.update.status.phase === "ready" ||
+          props.update.status.phase === "downloading" ||
+          props.update.status.phase === "installing") && (
+          <button
+            className="dock-row dock-update"
+            onClick={() => native.updateInstallNow()}
+            title="Install the new version now (the overlay restarts in a few seconds)"
+          >
+            <span className="logo-mark update">⬆</span>
+            <span className="dock-label">
+              <b>
+                {props.update.status.phase === "ready"
+                  ? `Update to v${props.update.status.version}`
+                  : props.update.status.phase === "installing"
+                    ? "Updating…"
+                    : "Downloading update…"}
+              </b>
+            </span>
+          </button>
+        )}
         <button className="dock-row dock-plus" onClick={props.onOpenSettings} title="Settings">
           <span className="logo-mark plain">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
