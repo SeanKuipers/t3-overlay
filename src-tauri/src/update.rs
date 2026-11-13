@@ -15,7 +15,7 @@ use tauri_plugin_updater::UpdaterExt;
 use tokio::sync::Notify;
 
 const FIRST_CHECK: Duration = Duration::from_secs(15);
-const CHECK_EVERY: Duration = Duration::from_secs(5 * 60);
+const CHECK_EVERY: Duration = Duration::from_secs(2 * 60);
 /// The overlay must be idle this long before an update is installed.
 const IDLE_FOR: Duration = Duration::from_secs(3);
 

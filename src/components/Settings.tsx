@@ -263,7 +263,7 @@ export function Settings() {
           Install updates automatically
         </label>
         <p className="hint">
-          Checks GitHub every 5 minutes. Updates install silently while the inbox is closed, even mid-game; the overlay
+          Checks GitHub every 2 minutes. Updates install silently while the inbox is closed, even mid-game; the overlay
           is gone for a few seconds while it restarts.
         </p>
         <div className="row">

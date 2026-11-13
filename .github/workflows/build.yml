@@ -15,9 +15,10 @@ permissions:
   contents: write
 
 concurrency:
-  group: build-${{ github.ref }}
-  # Never cancel a release halfway through publishing.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Releases get their own lane, so a release never waits behind a push's check run.
+  group: ${{ github.event_name == 'workflow_dispatch' && 'release' || format('check-{0}', github.ref) }}
+  # Never cancel a release halfway through publishing; newer checks replace older ones.
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 env:
   RELEASE: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
@@ -40,9 +41,13 @@ jobs:
           workspaces: src-tauri
 
       - run: npm ci
+
+      # Checks run on every push; a release (run by hand right after) skips repeating them.
       - run: npm run typecheck
+        if: env.RELEASE != 'true'
 
       - name: Rust tests
+        if: env.RELEASE != 'true'
         working-directory: src-tauri
         run: cargo test --locked
 
@@ -83,5 +88,4 @@ jobs:
           name: t3-overlay-windows
           path: |
             src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/t3-overlay.exe

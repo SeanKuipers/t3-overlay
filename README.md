@@ -60,7 +60,7 @@ All hotkeys can be changed in Settings. After you send a message, typed or spoke
 
 ## Updates
 
-New versions are published as signed releases. Pushes to `main` only run the checks, and a release is built when the Build workflow is run by hand. The overlay checks for a new one every 5 minutes, downloads it in the background, and installs it silently as soon as you're not using it: inbox closed, not dictating. That works mid-game too. The overlay disappears for a few seconds, comes back on its own without taking focus from League, and briefly shows what changed.
+New versions are published as signed releases. Pushes to `main` only run the checks, and a release is built when the Build workflow is run by hand. The overlay checks for a new one every 2 minutes, downloads it in the background, and installs it silently as soon as you're not using it: inbox closed, not dictating. That works mid-game too. The overlay disappears for a few seconds, comes back on its own without taking focus from League, and briefly shows what changed.
 
 To update right now, even mid-game: once a new version is downloaded, the inbox's tab bar shows **⬆ update to v…**. Click it to install. **Update now** in the tray menu, or the version at the bottom of the hub, does the same. To turn automatic updates off, use **Settings → Updates**. Updates are signed, and the overlay refuses any installer that isn't signed with the project's key.
 

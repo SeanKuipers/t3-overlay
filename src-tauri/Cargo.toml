@@ -41,7 +41,8 @@ windows = { version = "0.62", features = [
 ] }
 
 [profile.release]
-codegen-units = 1
-lto = true
+# Built for every update: favour compile speed (thin LTO, parallel codegen) over the last
+# few hundred KB.
+lto = "thin"
 opt-level = "s"
 strip = true
