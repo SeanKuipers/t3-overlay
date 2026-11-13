@@ -70,6 +70,18 @@ export interface Rect {
   height: number;
 }
 
+export interface OverlayDiagnostics {
+  windowExists: boolean;
+  visible: boolean | null;
+  minimized: boolean | null;
+  position: [number, number] | null;
+  size: [number, number] | null;
+  exStyle: string | null;
+  focusableNow: boolean;
+  heartbeatAgeMs: number | null;
+  errors: string[];
+}
+
 export const native = {
   getConfig: () => invoke<Config>("get_config"),
   saveConfig: (config: Config) => invoke<Config>("save_config", { config }),
@@ -85,6 +97,11 @@ export const native = {
   voiceCancel: () => invoke<void>("voice_cancel"),
   setNavHotkeys: (active: boolean) => invoke<void>("set_nav_hotkeys", { active }),
   gameState: () => invoke<GameState>("game_state"),
+  overlayReport: (kind: "heartbeat" | "error", message?: string) =>
+    invoke<void>("overlay_report", { kind, message: message ?? null }),
+  overlayDiagnostics: () => invoke<OverlayDiagnostics>("overlay_diagnostics"),
+  overlayReshow: () => invoke<void>("overlay_reshow"),
+  overlayReload: () => invoke<void>("overlay_reload"),
   setOverlayBusy: (busy: boolean) => invoke<void>("set_overlay_busy", { busy }),
   updateStatus: () => invoke<UpdateStatus>("update_status"),
   updateCheck: () => invoke<void>("update_check"),

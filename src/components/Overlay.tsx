@@ -22,6 +22,14 @@ export function Overlay() {
     return on<Config>("config://changed", setConfig);
   }, []);
 
+  // "The page is alive and React rendered": Settings → Diagnostics shows its age.
+  useEffect(() => {
+    const ping = () => native.overlayReport("heartbeat").catch(() => {});
+    ping();
+    const id = window.setInterval(ping, 5000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const game = useGame();
   const update = useUpdate();
   const t3 = useT3(config?.pollSeconds ?? 4, config?.recentHours ?? 2);

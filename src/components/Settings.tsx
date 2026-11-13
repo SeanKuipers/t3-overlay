@@ -1,7 +1,15 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { getVersion } from "@tauri-apps/api/app";
 import { useEffect, useState } from "react";
-import { errorMessage, native, on, type Config, type ConnectionStatus, type UpdateStatus } from "../lib/native";
+import {
+  errorMessage,
+  native,
+  on,
+  type Config,
+  type ConnectionStatus,
+  type OverlayDiagnostics,
+  type UpdateStatus,
+} from "../lib/native";
 
 const MODIFIERS: Record<string, string> = { Control: "Ctrl", Shift: "Shift", Alt: "Alt", Meta: "Super" };
 
@@ -52,6 +60,8 @@ export function Settings() {
   const [hex, setHex] = useState<string | null>(null);
   const [version, setVersion] = useState<string | null>(null);
   const [update, setUpdate] = useState<UpdateStatus>({ phase: "idle" });
+  const [diag, setDiag] = useState<OverlayDiagnostics | null>(null);
+  const checkOverlay = async () => setDiag(await native.overlayDiagnostics());
 
   useEffect(() => {
     native.getConfig().then(setConfig);
@@ -272,6 +282,30 @@ export function Settings() {
           </button>
           <span className={`status ${update.phase === "error" ? "err" : "ok"}`}>{updateText(update, version)}</span>
         </div>
+      </section>
+
+      <section>
+        <h2>Diagnostics</h2>
+        <p className="hint">If the overlay doesn't show up, this says why. Copy it into T3 if you're asking for help.</p>
+        <div className="row">
+          <button onClick={checkOverlay}>Check overlay</button>
+          <button onClick={() => native.overlayReshow().then(checkOverlay)}>Show overlay</button>
+          <button onClick={() => native.overlayReload().then(() => setTimeout(checkOverlay, 1500))}>Reload overlay</button>
+        </div>
+        {diag && (
+          <pre className="diag">
+            {[
+              `version          v${version ?? "?"}`,
+              `window exists    ${diag.windowExists}`,
+              `visible          ${diag.visible}   minimized ${diag.minimized}`,
+              `position / size  ${diag.position?.join(",") ?? "?"}  /  ${diag.size?.join("x") ?? "?"}`,
+              `ex style         ${diag.exStyle ?? "?"}   focusable now ${diag.focusableNow}`,
+              `page heartbeat   ${diag.heartbeatAgeMs === null ? "never (page not running)" : `${Math.round(diag.heartbeatAgeMs / 1000)}s ago`}`,
+              `errors           ${diag.errors.length === 0 ? "none" : ""}`,
+              ...diag.errors.map((e) => `  - ${e}`),
+            ].join("\n")}
+          </pre>
+        )}
       </section>
 
       <div className="row footer">

@@ -73,6 +73,8 @@ export async function installMock(scenario: string) {
         }
         case "game_state":
           return { inGame: false, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 0, clientOpen: false, fullscreenApp: false };
+        case "overlay_diagnostics":
+          return { windowExists: true, visible: true, minimized: false, position: [0, 0], size: [2560, 1440], exStyle: "0x002800a8", focusableNow: false, heartbeatAgeMs: 2100, errors: [] };
         case "hex_status":
           return "idle";
         case "plugin:app|version":

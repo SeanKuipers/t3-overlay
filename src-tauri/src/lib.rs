@@ -157,6 +157,38 @@ fn set_hit_regions(state: State<'_, overlay::OverlayState>, regions: Vec<overlay
     *state.hit_regions.lock().unwrap() = regions;
 }
 
+/// The overlay page says it's alive, or reports an error (Settings → Diagnostics).
+#[tauri::command]
+fn overlay_report(state: State<'_, overlay::OverlayState>, kind: String, message: Option<String>) {
+    let mut diag = state.diag.lock().unwrap();
+    if kind == "error" {
+        let message = message.unwrap_or_default();
+        log::error!("overlay page: {message}");
+        diag.errors.push(message.chars().take(600).collect());
+        let excess = diag.errors.len().saturating_sub(5);
+        diag.errors.drain(..excess);
+    } else {
+        diag.last_heartbeat_ms = Some(overlay::now_ms());
+    }
+}
+
+#[tauri::command]
+fn overlay_diagnostics(app: AppHandle) -> overlay::Diagnostics {
+    overlay::diagnostics(&app)
+}
+
+/// Settings → Diagnostics: put the overlay back on screen / reload its page.
+#[tauri::command]
+fn overlay_reshow(app: AppHandle) {
+    overlay::place_and_show(&app);
+}
+
+#[tauri::command]
+fn overlay_reload(app: AppHandle) -> Result<(), String> {
+    let window = overlay::window(&app).ok_or("The overlay window doesn't exist.")?;
+    window.eval("location.reload()").map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn overlay_focus(app: AppHandle) {
     overlay::take_focus(&app);
@@ -419,6 +451,7 @@ pub fn run() {
             build_tray(&handle)?;
             overlay::place_and_show(&handle);
             overlay::spawn_hit_test_loop(handle.clone());
+            overlay::spawn_visibility_watchdog(handle.clone());
             game::spawn_watcher(handle.clone());
             update::spawn(handle.clone());
             if needs_setup {
@@ -446,6 +479,10 @@ pub fn run() {
             update_check,
             update_install_now,
             take_update_notice,
+            overlay_report,
+            overlay_diagnostics,
+            overlay_reshow,
+            overlay_reload,
         ])
         .run(tauri::generate_context!())
         .expect("error while running T3 Overlay");

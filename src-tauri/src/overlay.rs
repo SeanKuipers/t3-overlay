@@ -31,8 +31,72 @@ pub struct OverlayState {
     pub hit_regions: Mutex<Vec<Rect>>,
     /// The overlay is focusable right now (only while you type in it; see `take_focus`).
     pub focusable: std::sync::atomic::AtomicBool,
+    /// What the overlay page last reported, for Settings → Diagnostics.
+    pub diag: Mutex<PageReport>,
     /// The window that had focus before the overlay took it (an HWND on Windows).
     pub previous_foreground: Mutex<Option<isize>>,
+}
+
+#[derive(Default, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PageReport {
+    /// Unix ms of the page's last "I'm alive and rendered" ping.
+    pub last_heartbeat_ms: Option<u64>,
+    /// Most recent errors from the page (newest last).
+    pub errors: Vec<String>,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Diagnostics {
+    pub window_exists: bool,
+    pub visible: Option<bool>,
+    pub minimized: Option<bool>,
+    pub position: Option<(i32, i32)>,
+    pub size: Option<(u32, u32)>,
+    pub ex_style: Option<String>,
+    pub focusable_now: bool,
+    pub heartbeat_age_ms: Option<u64>,
+    pub errors: Vec<String>,
+}
+
+pub fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+pub fn diagnostics(app: &AppHandle) -> Diagnostics {
+    let state = app.state::<OverlayState>();
+    let report = state.diag.lock().unwrap().clone();
+    let w = window(app);
+    Diagnostics {
+        window_exists: w.is_some(),
+        visible: w.as_ref().and_then(|w| w.is_visible().ok()),
+        minimized: w.as_ref().and_then(|w| w.is_minimized().ok()),
+        position: w.as_ref().and_then(|w| w.outer_position().ok()).map(|p| (p.x, p.y)),
+        size: w.as_ref().and_then(|w| w.outer_size().ok()).map(|s| (s.width, s.height)),
+        ex_style: w.as_ref().and_then(platform::ex_style).map(|s| format!("{s:#010x}")),
+        focusable_now: state.focusable.load(std::sync::atomic::Ordering::SeqCst),
+        heartbeat_age_ms: report.last_heartbeat_ms.map(|t| now_ms().saturating_sub(t)),
+        errors: report.errors,
+    }
+}
+
+/// Shows the overlay again if something left it hidden (checked shortly after startup).
+pub fn spawn_visibility_watchdog(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        for _ in 0..3 {
+            tokio::time::sleep(Duration::from_secs(3)).await;
+            if let Some(w) = window(&app) {
+                if !w.is_visible().unwrap_or(true) {
+                    log::warn!("overlay was hidden after startup; showing it again");
+                    let _ = w.show();
+                }
+            }
+        }
+    });
 }
 
 pub fn window(app: &AppHandle) -> Option<WebviewWindow> {
@@ -176,6 +240,10 @@ mod platform {
         raw(window).map(|h| h.0 as isize)
     }
 
+    pub fn ex_style(window: &WebviewWindow) -> Option<isize> {
+        raw(window).map(|h| unsafe { GetWindowLongPtrW(h, GWL_EXSTYLE) })
+    }
+
     pub fn foreground() -> Option<isize> {
         let h = unsafe { GetForegroundWindow() };
         (!h.0.is_null()).then_some(h.0 as isize)
@@ -268,6 +336,9 @@ mod platform {
         None
     }
     pub fn make_non_activating(_window: &WebviewWindow) {}
+    pub fn ex_style(_window: &WebviewWindow) -> Option<isize> {
+        None
+    }
 
     pub fn allow_any_foreground() {}
     pub fn keep_on_top(_window: &WebviewWindow) {}
