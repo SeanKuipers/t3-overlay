@@ -1441,3 +1441,156 @@ html[data-mock][data-view="overlay"] body {
   color: var(--muted);
   font-size: 11px;
 }
+
+/* ---------- the dock (outside games): a slim strip on the right edge, like OpenBot ---------- */
+.dock {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 42px;
+  max-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 7px 0;
+  border-right: 0;
+  border-radius: 16px 0 0 16px;
+  overflow: hidden;
+  transition: width 0.18s ease;
+  animation: dock-in 0.2s ease-out;
+}
+@keyframes dock-in {
+  from {
+    opacity: 0;
+    transform: translate(10px, -50%);
+  }
+}
+.dock.open {
+  width: 236px;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.35);
+}
+.dock-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+.dock-row {
+  /* Icon stays pinned to the screen edge; the label slides in to its left. */
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 4px 7px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: right;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.dock-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.dock-row.on {
+  background: rgba(255, 255, 255, 0.1);
+}
+.dock-row .avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+}
+.dock-row.on .avatar {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4);
+}
+.dock-label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  white-space: nowrap;
+}
+.dock.open .dock-label {
+  opacity: 1;
+  transition-delay: 0.06s;
+}
+.dock-label b {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #e8e8ea;
+}
+.dock-label small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.row-new {
+  color: #dcc0ff;
+  font-weight: 600;
+}
+.logo-mark {
+  position: relative;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0b0b0f;
+  background: linear-gradient(135deg, #e8e8ea, #b9b9c4);
+}
+.logo-mark.plain {
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 400;
+}
+.dock-row:hover .logo-mark.plain {
+  color: #fff;
+}
+.avatar-ask.offline {
+  background: var(--fail);
+  color: #fff;
+}
+.dock-sep {
+  height: 1px;
+  margin: 3px 9px;
+  background: rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+/* the chat pane opens to the left of the dock */
+.dock-chat {
+  position: absolute;
+  right: 54px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: min(500px, calc(100vw - 120px));
+  max-height: calc(100vh - 80px);
+  animation: dock-chat-in 0.18s ease-out;
+}
+@keyframes dock-chat-in {
+  from {
+    opacity: 0;
+    transform: translate(10px, -50%);
+  }
+}
+.hub-chat-project {
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}

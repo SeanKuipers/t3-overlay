@@ -96,7 +96,7 @@ export async function installMock(scenario: string) {
     JSON.stringify(scenario === "hubrun" || scenario === "hubask" ? { t1: "a1@" + iso(1), t3: "a3@" + iso(200) } : { t3: "a3@" + iso(200) }),
   );
   const game =
-    scenario === "hub" || scenario === "hubchat" || scenario === "hubrun" || scenario === "hubask" || scenario === "newhub" || scenario === "picker"
+    scenario === "hub" || scenario === "hubchat" || scenario === "hubrun" || scenario === "hubask" || scenario === "newhub" || scenario === "picker" || scenario === "dockhover"
       ? { inGame: false, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 0, clientOpen: true, fullscreenApp: false }
       : scenario === "dead" || scenario === "mini" || scenario === "newinbox" || scenario === "menu"
       ? { inGame: true, dead: true, respawnSeconds: 23, gameEnded: false, gameTime: 1085 }
@@ -116,6 +116,7 @@ export async function installMock(scenario: string) {
         const r = tab?.getBoundingClientRect();
         tab?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: (r?.x ?? 0) + 20, clientY: (r?.y ?? 0) + 20 }));
       }, 700);
+    if (scenario === "dockhover") setTimeout(() => emit("overlay://hover", "dock"), 1500);
     if (scenario === "mini") setTimeout(() => document.querySelector<HTMLButtonElement>(".close.minimize")?.click(), 600);
     if (scenario === "hubchat" || scenario === "hubrun" || scenario === "hubask") setTimeout(() => emit("hotkey://inbox", null), 400);
   }, 300);

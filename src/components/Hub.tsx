@@ -1,32 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
 import { isWorking } from "../lib/t3";
-import { dotClass, previewLine, relativeTimeShort, workingFor } from "../lib/threadUi";
+import { dotClass, relativeTimeShort, workingFor } from "../lib/threadUi";
 import { useTicker } from "../lib/useGame";
+import { useHoverId } from "../lib/useHoverId";
 import type { ThreadView } from "../lib/useT3";
 import { Conversation, type ConversationProps } from "./Conversation";
 import { NewChat } from "./NewChat";
-import { UpdateControl } from "./UpdateControl";
 
-// The chat hub: outside games, a roster docked on the left of the screen with the open
-// conversation beside it. Modelled on OpenBot's sidebar: two-line rows (name + time or
-// "Working", then a preview), an unread dot, search on top, a draggable edge (220-480px,
-// remembered) and a collapsed rail.
+// The dock: outside games, a thin strip on the right edge of the screen (like OpenBot's).
+// One round icon per chat, with a working ring, unread dot or question badge. Hovering
+// slides it open to show names and status; clicking a chat opens it beside the dock.
 
-const WIDTH_KEY = "t3-overlay:hub-width";
-const COLLAPSED_KEY = "t3-overlay:hub-collapsed";
-const DEFAULT_WIDTH = 300;
-const MIN_WIDTH = 220;
-const MAX_WIDTH = 480;
-const RAIL_WIDTH = 52;
-const EDGE = 12;
-const GAP = 10;
-
-function storedWidth() {
-  const n = Number(localStorage.getItem(WIDTH_KEY));
-  return Number.isFinite(n) && n >= MIN_WIDTH && n <= MAX_WIDTH ? n : DEFAULT_WIDTH;
-}
-
-/** A stable colour per project, for the row avatars. */
+/** A stable colour per project. */
 function hue(id: string | undefined) {
   let h = 0;
   for (const c of id ?? "") h = (h * 31 + c.charCodeAt(0)) % 360;
@@ -40,9 +24,16 @@ function Avatar({ thread }: { thread: ThreadView }) {
       {initial}
       {isWorking(thread.status) && thread.questions.length === 0 && <span className="avatar-ring" />}
       {thread.questions.length > 0 && <span className="avatar-ask">?</span>}
-      {thread.unread && <span className="avatar-unread" />}
+      {thread.unread && thread.questions.length === 0 && <span className="avatar-unread" />}
     </span>
   );
+}
+
+function status(t: ThreadView) {
+  if (t.questions.length > 0) return <span className="row-ask">Question</span>;
+  if (isWorking(t.status)) return <span className="row-working">Working {workingFor(t)}</span>;
+  if (t.unread) return <span className="row-new">New reply</span>;
+  return <span className="row-time">{relativeTimeShort(t.updatedAt)}</span>;
 }
 
 interface Props extends Omit<ConversationProps, "thread" | "threadCount" | "footer" | "onClose"> {
@@ -52,6 +43,8 @@ interface Props extends Omit<ConversationProps, "thread" | "threadCount" | "foot
   focused: boolean;
   onOpen: (threadId: string) => void;
   onCloseChat: () => void;
+  /** The T3 logo: open/close the chat on the current thread. */
+  onToggleChat: () => void;
   onFocusRequest: () => void;
   onOpenSettings: () => void;
   composing: boolean;
@@ -63,174 +56,69 @@ interface Props extends Omit<ConversationProps, "thread" | "threadCount" | "foot
 
 export function Hub(props: Props) {
   const { threads, selected, chatOpen } = props;
-  const [width, setWidth] = useState(storedWidth);
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === "1");
-  const [resizing, setResizing] = useState(false);
-  const [search, setSearch] = useState("");
-  useTicker(true, 5_000); // keeps "5m" and "Working 4m" fresh
+  const expanded = useHoverId() === "dock";
+  useTicker(true, 5_000); // keeps "5m" / "Working 4m" fresh
 
-  useEffect(() => {
-    localStorage.setItem(COLLAPSED_KEY, collapsed ? "1" : "0");
-  }, [collapsed]);
-
-  const railWidth = collapsed ? RAIL_WIDTH : width;
-  // The ticker's default spot is just right of the hub and its chat pane (see .corner).
   const paneOpen = chatOpen && (!!selected || props.composing);
-  const chatWidth = paneOpen ? Math.min(500, window.innerWidth - 400) + GAP : 0;
-  useEffect(() => {
-    document.documentElement.style.setProperty("--hub-right", `${EDGE + railWidth + GAP + chatWidth}px`);
-    return () => {
-      document.documentElement.style.removeProperty("--hub-right");
-    };
-  }, [railWidth, chatWidth]);
-
-  // Search what a row shows: its name, project and preview.
-  const term = search.trim().toLowerCase();
-  const shown = useMemo(
-    () =>
-      term
-        ? threads.filter((t) => `${t.title} ${t.projectTitle} ${previewLine(t, 400)}`.toLowerCase().includes(term))
-        : threads,
-    [threads, term],
-  );
-
-  // Drag the right edge to resize.
-  const startResize = (e: React.PointerEvent) => {
-    e.preventDefault();
-    const fromX = e.clientX;
-    const fromWidth = width;
-    let latest = width;
-    setResizing(true);
-    const move = (ev: PointerEvent) => {
-      latest = Math.round(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, fromWidth + ev.clientX - fromX)));
-      setWidth(latest);
-    };
-    const up = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      setResizing(false);
-      localStorage.setItem(WIDTH_KEY, String(latest));
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-  };
-
-  const open = (threadId: string) => {
-    setCollapsed(false);
-    props.onOpen(threadId);
-  };
-
   const focusOnClick = () => !props.focused && props.onFocusRequest();
+  const menu = (threadId: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    props.onThreadMenu(threadId, e.clientX, e.clientY);
+  };
 
   return (
     <>
-      {resizing && <div className="drag-shield resize" data-hit />}
-
-      {collapsed ? (
-        <div className="hub rail glass" data-hit style={{ width: RAIL_WIDTH }}>
-          <button className="hub-icon" onClick={() => setCollapsed(false)} title="Expand">
-            »
-          </button>
-          <div className="rail-list">
-            {threads.map((t) => (
-              <button
-                key={t.threadId}
-                className={`rail-item${chatOpen && t.threadId === selected?.threadId ? " on" : ""}`}
-                onClick={() => open(t.threadId)}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  props.onThreadMenu(t.threadId, e.clientX, e.clientY);
-                }}
-                title={`${t.title} · ${t.projectTitle}`}
-              >
-                <Avatar thread={t} />
-              </button>
-            ))}
-          </div>
+      <div className={`dock glass${expanded ? " open" : ""}`} data-hit data-hover-id="dock">
+        <button className="dock-row dock-logo" onClick={props.onToggleChat} title="T3: open / close chat">
+          <span className="logo-mark">
+            T3
+            {!props.connected && <span className="avatar-ask offline">!</span>}
+          </span>
+          <span className="dock-label">
+            <b>T3 Code</b>
+            <small>{props.connected ? `${threads.length} recent` : "Not connected"}</small>
+          </span>
+        </button>
+        <div className="dock-sep" />
+        <div className="dock-list">
+          {threads.map((t) => (
+            <button
+              key={t.threadId}
+              className={`dock-row${paneOpen && !props.composing && t.threadId === selected?.threadId ? " on" : ""}`}
+              onClick={() => props.onOpen(t.threadId)}
+              onContextMenu={menu(t.threadId)}
+              title={expanded ? undefined : t.title}
+            >
+              <Avatar thread={t} />
+              <span className="dock-label">
+                <b>{t.title || "Untitled"}</b>
+                <small>{status(t)}</small>
+              </span>
+            </button>
+          ))}
         </div>
-      ) : (
-        <div className="hub glass" data-hit style={{ width }} onMouseDown={focusOnClick}>
-          <div className="hub-head">
-            <span className={`dot ${props.connected ? "idle" : "fail"}`} />
-            <b>T3</b>
-            <span className="muted">{threads.length > 0 ? `${threads.length} recent` : ""}</span>
-            <span className="spacer" />
-            <button className="hub-icon plus" onClick={props.onNewChat} title="New chat">
-              +
-            </button>
-            <button className="hub-icon gear" onClick={props.onOpenSettings} title="Settings">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <circle cx="12" cy="12" r="3" />
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-              </svg>
-            </button>
-            <button className="hub-icon" onClick={() => setCollapsed(true)} title="Collapse">
-              «
-            </button>
-          </div>
-          <input
-            className="hub-search"
-            placeholder="Search threads"
-            aria-label="Search thread names and recent messages"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") setSearch("");
-              if (e.key === "Enter" && shown[0]) open(shown[0].threadId);
-            }}
-          />
-          <div className="hub-list">
-            {!props.connected ? (
-              <button className="hub-empty" onClick={props.onOpenSettings}>
-                Not connected to T3 Code. Open Settings.
-              </button>
-            ) : shown.length === 0 ? (
-              <p className="hub-empty muted">{term ? "No matches." : props.error ?? "No recent threads."}</p>
-            ) : (
-              shown.map((t) => (
-                <button
-                  key={t.threadId}
-                  className={`hub-row${chatOpen && !props.composing && t.threadId === selected?.threadId ? " on" : ""}${t.unread ? " unread" : ""}`}
-                  onClick={() => open(t.threadId)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    props.onThreadMenu(t.threadId, e.clientX, e.clientY);
-                  }}
-                  title={`${t.projectTitle} · ${t.title}`}
-                >
-                  <Avatar thread={t} />
-                  <span className="row-main">
-                    <span className="row-top">
-                      <span className="row-name">{t.title || "Untitled"}</span>
-                      {t.questions.length > 0 ? (
-                        <span className="row-ask">Question</span>
-                      ) : isWorking(t.status) ? (
-                        <span className="row-working">Working {workingFor(t)}</span>
-                      ) : (
-                        <span className="row-time">{relativeTimeShort(t.updatedAt)}</span>
-                      )}
-                      {t.unread && <span className="row-dot" />}
-                    </span>
-                    <span className="row-sub">{t.questions[0]?.questions[0]?.question ?? previewLine(t)}</span>
-                  </span>
-                </button>
-              ))
-            )}
-          </div>
-          <div className="hub-foot">
-            <UpdateControl version={props.update.version} status={props.update.status} />
-          </div>
-          <div className="hub-resize" onPointerDown={startResize} title="Drag to resize" />
-        </div>
-      )}
+        <div className="dock-sep" />
+        <button className={`dock-row dock-plus${props.composing && paneOpen ? " on" : ""}`} onClick={props.onNewChat} title="New chat">
+          <span className="logo-mark plain">+</span>
+          <span className="dock-label">
+            <b>New chat</b>
+          </span>
+        </button>
+        <button className="dock-row dock-plus" onClick={props.onOpenSettings} title="Settings">
+          <span className="logo-mark plain">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </span>
+          <span className="dock-label">
+            <b>Settings</b>
+          </span>
+        </button>
+      </div>
 
       {paneOpen && (
-        <div
-          className="hub-chat inbox glass"
-          data-hit
-          style={{ left: EDGE + railWidth + GAP, top: EDGE }}
-          onMouseDown={focusOnClick}
-        >
+        <div className="hub-chat dock-chat inbox glass" data-hit onMouseDown={focusOnClick}>
           <div className="hub-chat-head">
             {props.composing || !selected ? (
               <span className="hub-chat-title">New chat</span>
@@ -240,6 +128,7 @@ export function Hub(props: Props) {
                 <span className="hub-chat-title" title={selected.title}>
                   {selected.title || "Untitled"}
                 </span>
+                {selected.projectTitle && <span className="hub-chat-project">{selected.projectTitle}</span>}
               </>
             )}
             <span className="spacer" />

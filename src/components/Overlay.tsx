@@ -513,6 +513,12 @@ export function Overlay() {
           onSubmit={submit}
           onFocusRequest={focusInput}
           onOpenSettings={() => native.openSettings()}
+          onToggleChat={() => {
+            if (hubChat) return closeHubChat();
+            const id = selectedId ?? threads[0]?.threadId;
+            if (id) openThread(id);
+            else newChat();
+          }}
           onSteerQueued={onSteerQueued}
           onUnqueue={onUnqueue}
           onAnswer={onAnswer}

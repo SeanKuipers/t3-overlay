@@ -69,6 +69,8 @@ export interface Rect {
   y: number;
   width: number;
   height: number;
+  /** Hover-tracked region (data-hover-id). */
+  id?: string | null;
 }
 
 export interface OverlayDiagnostics {

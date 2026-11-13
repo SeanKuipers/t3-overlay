@@ -213,9 +213,9 @@ export function Settings() {
       </section>
 
       <section>
-        <h2>Chat hub</h2>
+        <h2>Dock</h2>
         <label>
-          Outside games, dock the hub on the left
+          Outside games, show the dock on the right edge
           <select value={config.hubMode} onChange={(e) => set("hubMode", e.target.value as Config["hubMode"])}>
             <option value="client">While the League client is open</option>
             <option value="always">Always</option>
@@ -223,8 +223,8 @@ export function Settings() {
           </select>
         </label>
         <p className="hint">
-          Your recent threads, with search, docked on the left. Click one to open it beside the list. Drag the edge to
-          resize, or collapse it to a thin strip. It hides when a game starts.
+          A thin strip on the right edge with your recent chats. Hover it to see names and status, click a chat to open
+          it, + for a new chat. It hides when a game (or any fullscreen app) starts.
         </p>
       </section>
 

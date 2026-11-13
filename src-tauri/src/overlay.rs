@@ -7,17 +7,20 @@
 use serde::Deserialize;
 use std::sync::Mutex;
 use std::time::Duration;
-use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewWindow};
 
 pub const LABEL: &str = "overlay";
 
 /// A rectangle in physical pixels, relative to the overlay window.
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Rect {
     pub x: f64,
     pub y: f64,
     pub width: f64,
     pub height: f64,
+    /// Set for regions that react to hover (e.g. the dock): reported via `overlay://hover`.
+    #[serde(default)]
+    pub id: Option<String>,
 }
 
 impl Rect {
@@ -139,6 +142,9 @@ pub fn place_and_show(app: &AppHandle) {
 pub fn spawn_hit_test_loop(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let mut interactive = false;
+        // The page can't see the mouse leave once the window is click-through again, so
+        // hover for named regions is tracked here.
+        let mut hovered: Option<String> = None;
         let mut last_foreground = None;
         let mut tick: u32 = 0;
         loop {
@@ -156,14 +162,21 @@ pub fn spawn_hit_test_loop(app: AppHandle) {
             }
 
             let state = app.state::<OverlayState>();
-            let over = match (window.cursor_position(), window.outer_position()) {
+            let (over, hover) = match (window.cursor_position(), window.outer_position()) {
                 (Ok(cursor), Ok(origin)) => {
                     let x = cursor.x - origin.x as f64;
                     let y = cursor.y - origin.y as f64;
-                    state.hit_regions.lock().unwrap().iter().any(|r| r.contains(x, y))
+                    let regions = state.hit_regions.lock().unwrap();
+                    let over = regions.iter().any(|r| r.contains(x, y));
+                    let hover = regions.iter().find(|r| r.id.is_some() && r.contains(x, y)).and_then(|r| r.id.clone());
+                    (over, hover)
                 }
-                _ => false,
+                _ => (false, None),
             };
+            if hover != hovered {
+                hovered = hover;
+                let _ = app.emit("overlay://hover", hovered.clone());
+            }
             if over != interactive {
                 interactive = over;
                 let _ = window.set_ignore_cursor_events(!over);

@@ -15,7 +15,9 @@ export function useHitRegions(deps: unknown[]) {
         const scale = window.devicePixelRatio || 1;
         const regions = [...document.querySelectorAll<HTMLElement>("[data-hit]")].map((el) => {
           const r = el.getBoundingClientRect();
-          return { x: r.x * scale, y: r.y * scale, width: r.width * scale, height: r.height * scale };
+          // `data-hover-id` regions get hover events from Rust (see useHoverId).
+          const id = el.dataset.hoverId ?? null;
+          return { x: r.x * scale, y: r.y * scale, width: r.width * scale, height: r.height * scale, id };
         });
         const key = JSON.stringify(regions);
         if (key !== last) {
