@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { errorMessage, isT3Error, native, on, type ConnectionStatus, type SendMode } from "./native";
 import {
   answerPending,
+  launchThread,
   cancelQueued,
   listPendingIds,
   readPending,
@@ -236,9 +237,19 @@ export function useT3(pollSeconds: number, recentHours: number) {
     [refresh],
   );
 
+  /** Starts a new chat and returns its thread id, once it shows up in the list. */
+  const launch = useCallback(
+    async (projectId: string | null, message: string) => {
+      const threadId = await launchThread(projectId, message);
+      await refresh();
+      return threadId;
+    },
+    [refresh],
+  );
+
   const dismissNotice = useCallback((id: number | string) => {
     setNotices((n) => n.filter((x) => x.id !== id));
   }, []);
 
-  return { status, threads, error, notices, markRead, send, refresh, dismissNotice, steer, unqueue, answer };
+  return { status, threads, error, notices, markRead, send, refresh, dismissNotice, steer, unqueue, answer, launch };
 }

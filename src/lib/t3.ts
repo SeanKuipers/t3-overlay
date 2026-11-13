@@ -33,7 +33,7 @@ interface ThreadListResult {
   nextCursor: number | null;
 }
 
-interface Project {
+export interface Project {
   id: string;
   title: string;
   deletedAt: string | null;
@@ -110,10 +110,10 @@ export const isWorking = (status: ThreadStatus) => WORKING.has(status);
 let projectCache: { at: number; projects: Project[] } | null = null;
 let allProjectsSupported: boolean | null = null;
 
-async function listProjects(): Promise<Project[]> {
+export async function listProjects(): Promise<Project[]> {
   if (projectCache && Date.now() - projectCache.at < 60_000) return projectCache.projects;
   const result = await native.t3Call<{ projects: Project[] }>("t3_project_list", { limit: 100 });
-  const projects = result.projects.filter((p) => !p.deletedAt);
+  const projects = (result?.projects ?? []).filter((p) => !p.deletedAt);
   projectCache = { at: Date.now(), projects };
   return projects;
 }
@@ -201,6 +201,26 @@ export async function readConversation(thread: Thread): Promise<Conversation> {
   const replies = ordered.slice(promptIndex + 1).filter((i) => i.type !== "user_message");
   const last = replies.at(-1);
   return { prompt, replies, replyKey: last ? `${last.itemId}@${last.updatedAt}` : null, runStartedAt };
+}
+
+/**
+ * Starts a new chat: a top-level thread in `projectId` (or a scratch folder when null) with
+ * `message` as its first prompt. Asks for full access, like your other threads; if T3 won't
+ * allow that for this client, it falls back to T3's default mode.
+ */
+export async function launchThread(projectId: string | null, message: string): Promise<string> {
+  const firstLine = message.split("\n").find((l) => l.trim())?.trim() ?? "New chat";
+  const title = firstLine.length > 60 ? `${firstLine.slice(0, 59)}…` : firstLine;
+  const target = projectId ? { projectId } : { scratch: true };
+  const launch = (extra: Record<string, unknown>) =>
+    native.t3Call<{ threadId: string; projectId: string }>("t3_thread_launch", { ...target, title, message, ...extra });
+  try {
+    return (await launch({ runtimeMode: "full-access" })).threadId;
+  } catch (e) {
+    const text = JSON.stringify(e).toLowerCase();
+    if (!text.includes("mode") && !text.includes("access")) throw e;
+    return (await launch({})).threadId;
+  }
 }
 
 /** Messages queued behind the running turn, in send order. Empty on servers without queues. */

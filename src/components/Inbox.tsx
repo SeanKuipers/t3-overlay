@@ -3,6 +3,7 @@ import { dotClass } from "../lib/threadUi";
 import { useTicker, type Game } from "../lib/useGame";
 import type { ThreadView } from "../lib/useT3";
 import { Conversation, type ConversationProps } from "./Conversation";
+import { NewChat } from "./NewChat";
 import { UpdateControl } from "./UpdateControl";
 
 interface Props extends Omit<ConversationProps, "thread" | "threadCount" | "footer"> {
@@ -16,6 +17,11 @@ interface Props extends Omit<ConversationProps, "thread" | "threadCount" | "foot
   minimized: boolean;
   onMinimize: () => void;
   onExpand: () => void;
+  /** The "New chat" card is showing instead of a thread. */
+  composing: boolean;
+  onNewChat: () => void;
+  onStartChat: (projectId: string | null, message: string) => Promise<void>;
+  onCancelNewChat: () => void;
 }
 
 // ---------- position: draggable by the tab bar, remembered between games ----------
@@ -142,7 +148,7 @@ export function Inbox(props: Props) {
             <button
               key={t.threadId}
               ref={t.threadId === selected?.threadId ? selectedTabRef : undefined}
-              className={`tab${t.threadId === selected?.threadId ? " on" : ""}`}
+              className={`tab${!props.composing && t.threadId === selected?.threadId ? " on" : ""}`}
               onClick={() => props.onSelect(t.threadId)}
               title={`${t.projectTitle} · ${t.title}`}
             >
@@ -150,6 +156,9 @@ export function Inbox(props: Props) {
               <span className="tab-title">{t.title || "Untitled"}</span>
             </button>
           ))}
+          <button className={`tab new-tab${props.composing ? " on" : ""}`} onClick={props.onNewChat} title="New chat">
+            +
+          </button>
         </div>
         {/* Only when there's something to do: a new version is downloading / ready / failed. */}
         {["downloading", "ready", "installing", "error"].includes(props.update.status.phase) && (
@@ -167,6 +176,14 @@ export function Inbox(props: Props) {
         </button>
       </div>
 
+      {props.composing ? (
+        <NewChat
+          suggestedProjectId={selected?.projectId ?? null}
+          inputRef={props.inputRef}
+          onStart={props.onStartChat}
+          onCancel={props.onCancelNewChat}
+        />
+      ) : (
       <Conversation
         {...props}
         thread={selected}
@@ -179,6 +196,7 @@ export function Inbox(props: Props) {
           )
         }
       />
+      )}
     </div>
     </>
   );

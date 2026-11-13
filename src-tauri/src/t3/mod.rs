@@ -15,6 +15,8 @@ pub const ALLOWED_TOOLS: &[&str] = &[
     "t3_queue",
     // Answer an agent's questions (it cannot approve permission requests).
     "t3_pending_request",
+    // Start a new chat (top-level thread) in one of your projects.
+    "t3_thread_launch",
 ];
 
 pub fn check_allowed(tool: &str) -> Result<(), String> {

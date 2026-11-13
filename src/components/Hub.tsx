@@ -4,6 +4,7 @@ import { dotClass, previewLine, relativeTimeShort, workingFor } from "../lib/thr
 import { useTicker } from "../lib/useGame";
 import type { ThreadView } from "../lib/useT3";
 import { Conversation, type ConversationProps } from "./Conversation";
+import { NewChat } from "./NewChat";
 import { UpdateControl } from "./UpdateControl";
 
 // The chat hub: outside games, a roster docked on the left of the screen with the open
@@ -53,6 +54,10 @@ interface Props extends Omit<ConversationProps, "thread" | "threadCount" | "foot
   onCloseChat: () => void;
   onFocusRequest: () => void;
   onOpenSettings: () => void;
+  composing: boolean;
+  onNewChat: () => void;
+  onStartChat: (projectId: string | null, message: string) => Promise<void>;
+  onCancelNewChat: () => void;
 }
 
 export function Hub(props: Props) {
@@ -69,7 +74,8 @@ export function Hub(props: Props) {
 
   const railWidth = collapsed ? RAIL_WIDTH : width;
   // The ticker's default spot is just right of the hub and its chat pane (see .corner).
-  const chatWidth = chatOpen && selected ? Math.min(500, window.innerWidth - 400) + GAP : 0;
+  const paneOpen = chatOpen && (!!selected || props.composing);
+  const chatWidth = paneOpen ? Math.min(500, window.innerWidth - 400) + GAP : 0;
   useEffect(() => {
     document.documentElement.style.setProperty("--hub-right", `${EDGE + railWidth + GAP + chatWidth}px`);
     return () => {
@@ -144,6 +150,9 @@ export function Hub(props: Props) {
             <b>T3</b>
             <span className="muted">{threads.length > 0 ? `${threads.length} recent` : ""}</span>
             <span className="spacer" />
+            <button className="hub-icon plus" onClick={props.onNewChat} title="New chat">
+              +
+            </button>
             <button className="hub-icon gear" onClick={props.onOpenSettings} title="Settings">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <circle cx="12" cy="12" r="3" />
@@ -176,7 +185,7 @@ export function Hub(props: Props) {
               shown.map((t) => (
                 <button
                   key={t.threadId}
-                  className={`hub-row${chatOpen && t.threadId === selected?.threadId ? " on" : ""}${t.unread ? " unread" : ""}`}
+                  className={`hub-row${chatOpen && !props.composing && t.threadId === selected?.threadId ? " on" : ""}${t.unread ? " unread" : ""}`}
                   onClick={() => open(t.threadId)}
                   title={`${t.projectTitle} · ${t.title}`}
                 >
@@ -206,7 +215,7 @@ export function Hub(props: Props) {
         </div>
       )}
 
-      {chatOpen && selected && (
+      {paneOpen && (
         <div
           className="hub-chat inbox glass"
           data-hit
@@ -214,16 +223,31 @@ export function Hub(props: Props) {
           onMouseDown={focusOnClick}
         >
           <div className="hub-chat-head">
-            <span className={dotClass(selected)} />
-            <span className="hub-chat-title" title={selected.title}>
-              {selected.title || "Untitled"}
-            </span>
+            {props.composing || !selected ? (
+              <span className="hub-chat-title">New chat</span>
+            ) : (
+              <>
+                <span className={dotClass(selected)} />
+                <span className="hub-chat-title" title={selected.title}>
+                  {selected.title || "Untitled"}
+                </span>
+              </>
+            )}
             <span className="spacer" />
             <button className="close" onClick={props.onCloseChat} title="Close (Esc)">
               ×
             </button>
           </div>
-          <Conversation {...props} thread={selected} threadCount={threads.length} onClose={props.onCloseChat} />
+          {props.composing || !selected ? (
+            <NewChat
+              suggestedProjectId={selected?.projectId ?? null}
+              inputRef={props.inputRef}
+              onStart={props.onStartChat}
+              onCancel={props.onCancelNewChat}
+            />
+          ) : (
+            <Conversation {...props} thread={selected} threadCount={threads.length} onClose={props.onCloseChat} />
+          )}
         </div>
       )}
     </>

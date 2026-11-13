@@ -41,6 +41,8 @@ export function Overlay() {
   const [deathOpen, setDeathOpen] = useState(false);
   // The – button: the inbox stays "open" (draft, thread, death state) but shrinks to a pill.
   const [minimized, setMinimized] = useState(false);
+  // The "New chat" card is showing in the inbox / hub pane.
+  const [composing, setComposing] = useState(false);
   const [focused, setFocused] = useState(document.hasFocus());
   const [endDismissed, setEndDismissed] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -144,6 +146,7 @@ export function Overlay() {
     setPinned(false);
     setDeathOpen(false);
     setMinimized(false);
+    setComposing(false);
     if (game.gameEnded) setEndDismissed(true);
     if (document.hasFocus()) native.releaseOverlay();
   }, [game.gameEnded]);
@@ -159,6 +162,7 @@ export function Overlay() {
 
   const closeHubChat = useCallback(() => {
     setHubChat(false);
+    setComposing(false);
     if (document.hasFocus()) native.releaseOverlay();
   }, []);
 
@@ -342,6 +346,28 @@ export function Overlay() {
     },
     [focusInput, hubShown],
   );
+  // New chat: open the inbox / hub pane on the "New chat" card.
+  const newChat = useCallback(() => {
+    setComposing(true);
+    setMinimized(false);
+    if (hubShown) setHubChat(true);
+    else setPinned(true);
+    native.focusOverlay();
+  }, [hubShown]);
+  const startChat = useCallback(
+    async (projectId: string | null, message: string) => {
+      const threadId = await t3.launch(projectId, message);
+      setSelectedId(threadId);
+      setComposing(false);
+    },
+    [t3.launch],
+  );
+  const cancelNewChat = useCallback(() => {
+    setComposing(false);
+    if (t3.threads.length === 0) (hubShown ? closeHubChat() : close());
+  }, [t3.threads.length, hubShown, closeHubChat, close]);
+  const newChatProps = { composing, onNewChat: newChat, onStartChat: startChat, onCancelNewChat: cancelNewChat };
+
   // The ticker toggles: clicking it again closes what it opened.
   const closeView = () => (hubShown ? closeHubChat() : close());
 
@@ -421,6 +447,7 @@ export function Overlay() {
           onSteerQueued={onSteerQueued}
           onUnqueue={onUnqueue}
           onAnswer={onAnswer}
+          {...newChatProps}
         />
       )}
       {inboxVisible && (
@@ -451,6 +478,7 @@ export function Overlay() {
           onSteerQueued={onSteerQueued}
           onUnqueue={onUnqueue}
           onAnswer={onAnswer}
+          {...newChatProps}
         />
       )}
       {voice && <VoiceHud voice={voice} />}

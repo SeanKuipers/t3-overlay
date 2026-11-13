@@ -46,6 +46,7 @@ export async function installMock(scenario: string) {
           }
           if (args.tool === "t3_thread_read") return { items: reads[a.threadId] ?? [], nextPosition: null, hasMore: false };
           if (args.tool === "t3_thread_send") return { delivery: "started", status: "running" };
+          if (args.tool === "t3_thread_launch") return { threadId: "t2", projectId: a.projectId ?? "p2", runId: "r9", status: "running" };
           if (args.tool === "t3_pending_request") {
             if (a.action === "list") return { requestIds: a.threadId === "t2" && scenario === "hubask" ? ["r1"] : [] };
             if (a.action === "read")
@@ -95,9 +96,9 @@ export async function installMock(scenario: string) {
     JSON.stringify(scenario === "hubrun" || scenario === "hubask" ? { t1: "a1@" + iso(1), t3: "a3@" + iso(200) } : { t3: "a3@" + iso(200) }),
   );
   const game =
-    scenario === "hub" || scenario === "hubchat" || scenario === "hubrun" || scenario === "hubask"
+    scenario === "hub" || scenario === "hubchat" || scenario === "hubrun" || scenario === "hubask" || scenario === "newhub"
       ? { inGame: false, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 0, clientOpen: true, fullscreenApp: false }
-      : scenario === "dead" || scenario === "mini"
+      : scenario === "dead" || scenario === "mini" || scenario === "newinbox"
       ? { inGame: true, dead: true, respawnSeconds: 23, gameEnded: false, gameTime: 1085 }
       : scenario === "ended"
         ? { inGame: true, dead: false, respawnSeconds: 0, gameEnded: true, gameTime: 1900 }
@@ -106,6 +107,8 @@ export async function installMock(scenario: string) {
     emit("game://state", { ...game, respawnSeconds: game.dead ? 32 : 0 });
     setTimeout(() => emit("game://state", game), 50);
     if (scenario === "voice") emit("voice://state", { phase: "recording" });
+    if (scenario === "newhub") setTimeout(() => document.querySelector<HTMLButtonElement>(".hub-icon.plus")?.click(), 600);
+    if (scenario === "newinbox") setTimeout(() => document.querySelector<HTMLButtonElement>(".new-tab")?.click(), 600);
     if (scenario === "mini") setTimeout(() => document.querySelector<HTMLButtonElement>(".close.minimize")?.click(), 600);
     if (scenario === "hubchat" || scenario === "hubrun" || scenario === "hubask") setTimeout(() => emit("hotkey://inbox", null), 400);
   }, 300);
