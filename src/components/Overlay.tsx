@@ -91,11 +91,11 @@ export function Overlay() {
     requestAnimationFrame(() => inputRef.current?.focus());
   }, []);
 
-  // Inbox hotkey / tray: open+focus, or close when already focused.
+  // Inbox hotkey / tray: a plain toggle. Open (and focus the reply box), or close.
   useEffect(
     () =>
       on("hotkey://inbox", () => {
-        if (visible && document.hasFocus()) close();
+        if (visible) close();
         else {
           setPinned(true);
           focusInput();
@@ -103,6 +103,8 @@ export function Overlay() {
       }),
     [visible, close, focusInput],
   );
+  // Esc closes the inbox, focused or not (registered only while it's open).
+  useEffect(() => on("hotkey://close", () => visible && close()), [visible, close]);
 
   // Thread-switching hotkeys exist only while the inbox is open.
   useEffect(() => {

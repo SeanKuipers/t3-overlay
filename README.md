@@ -43,7 +43,7 @@ The overlay keeps running in the system tray. Right-click the tray icon to open 
 
 | | Default | |
 |---|---|---|
-| Open / close inbox | `Ctrl+Shift+Space` | Opens the inbox at any time and focuses the reply box. Press again or `Esc` to go back to the game. |
+| Open / close inbox | `Ctrl+Shift+Space` | Opens the inbox at any time and focuses the reply box. Press again to close it. `Esc` also closes it, even when League has the keyboard: while the inbox is open, the overlay takes `Esc`. |
 | Hold to talk | `Ctrl+Shift+V` | Hold it, speak, release. The text is sent to the thread open in the inbox. If the inbox is closed, it goes to the newest unread thread, or else the most recently active one. |
 | Switch threads | `Ctrl+Shift+Q` / `Ctrl+Shift+E` | Previous / next thread. Only active while the inbox is open, so League keeps these keys otherwise. Scrolling the mouse wheel over the tabs does the same. |
 | In the inbox | `Enter` / `Ctrl+Enter` | **Queue**: runs as the agent's next turn. **Steer**: joins the turn it's working on right now. Swap them in Settings → Sending. |

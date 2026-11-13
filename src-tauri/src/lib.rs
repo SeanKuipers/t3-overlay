@@ -169,8 +169,13 @@ fn open_settings(app: AppHandle) -> Result<(), String> {
     show_settings(&app).map_err(|e| e.to_string())
 }
 
-/// Thread-switching hotkeys only exist while the inbox is open, so they never take keys
-/// away from League the rest of the time.
+/// Closes the inbox even when League has the keyboard (e.g. after respawning).
+fn escape() -> Shortcut {
+    Shortcut::new(None, tauri_plugin_global_shortcut::Code::Escape)
+}
+
+/// The inbox-only hotkeys (switch threads, Esc to close) exist only while the inbox is
+/// open, so they never take keys away from League the rest of the time.
 #[tauri::command]
 fn set_nav_hotkeys(app: AppHandle, state: State<'_, AppState>, active: bool) {
     if state.nav_active.swap(active, Ordering::SeqCst) == active {
@@ -178,7 +183,7 @@ fn set_nav_hotkeys(app: AppHandle, state: State<'_, AppState>, active: bool) {
     }
     let hotkeys = state.hotkeys.lock().unwrap().clone();
     let gs = app.global_shortcut();
-    for shortcut in [hotkeys.prev, hotkeys.next].into_iter().flatten() {
+    for shortcut in [hotkeys.prev, hotkeys.next, Some(escape())].into_iter().flatten() {
         let result = if active { gs.register(shortcut) } else { gs.unregister(shortcut) };
         if let Err(e) = result {
             log::warn!("thread hotkey {shortcut:?}: {e}");
@@ -247,10 +252,10 @@ fn register_hotkeys(app: &AppHandle, config: &Config) -> Result<(), String> {
     };
     let prev = parse_shortcut(&config.hotkey_prev, "previous thread")?;
     let next = parse_shortcut(&config.hotkey_next, "next thread")?;
-    let all: Vec<Shortcut> = [inbox, voice, prev, next].into_iter().flatten().collect();
+    let all: Vec<Shortcut> = [inbox, voice, prev, next, Some(escape())].into_iter().flatten().collect();
     for (i, a) in all.iter().enumerate() {
         if all[i + 1..].contains(a) {
-            return Err("Each hotkey must be different.".into());
+            return Err("Each hotkey must be different (and Esc is reserved for closing the inbox).".into());
         }
     }
     let state = app.state::<AppState>();
@@ -258,7 +263,7 @@ fn register_hotkeys(app: &AppHandle, config: &Config) -> Result<(), String> {
     let _ = gs.unregister_all();
     let mut active = vec![inbox, voice];
     if state.nav_active.load(Ordering::SeqCst) {
-        active.extend([prev, next]);
+        active.extend([prev, next, Some(escape())]);
     }
     for shortcut in active.into_iter().flatten() {
         gs.register(shortcut)
@@ -274,6 +279,8 @@ fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, pressed: bool) {
     let is = |s: &Option<Shortcut>| s.as_ref() == Some(shortcut);
     if is(&hk.inbox) && pressed {
         let _ = app.emit("hotkey://inbox", ());
+    } else if *shortcut == escape() && pressed {
+        let _ = app.emit("hotkey://close", ());
     } else if is(&hk.prev) && pressed {
         let _ = app.emit("hotkey://cycle", -1);
     } else if is(&hk.next) && pressed {
