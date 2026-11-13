@@ -1,0 +1,225 @@
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { useEffect, useState } from "react";
+import { errorMessage, native, on, type Config, type ConnectionStatus } from "../lib/native";
+
+const MODIFIERS: Record<string, string> = { Control: "Ctrl", Shift: "Shift", Alt: "Alt", Meta: "Super" };
+
+/** Turns a keydown into the "Ctrl+Shift+Space" format the global-shortcut plugin parses. */
+function comboFromEvent(e: React.KeyboardEvent): string | null {
+  if (e.key in MODIFIERS) return null;
+  const parts: string[] = [];
+  if (e.ctrlKey) parts.push("Ctrl");
+  if (e.shiftKey) parts.push("Shift");
+  if (e.altKey) parts.push("Alt");
+  if (e.metaKey) parts.push("Super");
+  const key = e.code.replace(/^Key/, "").replace(/^Digit/, "");
+  parts.push(key);
+  return parts.join("+");
+}
+
+function HotkeyInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [recording, setRecording] = useState(false);
+  return (
+    <input
+      className={`hotkey${recording ? " recording" : ""}`}
+      readOnly
+      value={recording ? "Press a key combination…" : value || "(none)"}
+      onFocus={() => setRecording(true)}
+      onBlur={() => setRecording(false)}
+      onKeyDown={(e) => {
+        e.preventDefault();
+        if (e.key === "Escape") return (e.target as HTMLInputElement).blur();
+        if (e.key === "Backspace" || e.key === "Delete") {
+          onChange("");
+          return (e.target as HTMLInputElement).blur();
+        }
+        const combo = comboFromEvent(e);
+        if (combo) {
+          onChange(combo);
+          (e.target as HTMLInputElement).blur();
+        }
+      }}
+    />
+  );
+}
+
+export function Settings() {
+  const [config, setConfig] = useState<Config | null>(null);
+  const [status, setStatus] = useState<ConnectionStatus | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [hex, setHex] = useState<string | null>(null);
+
+  useEffect(() => {
+    native.getConfig().then(setConfig);
+    native.t3Status().then(setStatus);
+    return on<ConnectionStatus>("t3://connection", setStatus);
+  }, []);
+
+  if (!config) return <div className="settings">Loading…</div>;
+  const set = <K extends keyof Config>(key: K, value: Config[K]) => setConfig({ ...config, [key]: value });
+
+  const save = async () => {
+    setBusy("save");
+    setMessage(null);
+    try {
+      setConfig(await native.saveConfig(config));
+      setMessage({ kind: "ok", text: "Saved." });
+    } catch (e) {
+      setMessage({ kind: "err", text: errorMessage(e) });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const connect = async () => {
+    setBusy("connect");
+    setMessage({ kind: "ok", text: "Approve the overlay in the browser tab that just opened…" });
+    try {
+      const s = await native.t3Connect(config.serverUrl);
+      setStatus(s);
+      setConfig({ ...config, serverUrl: s.serverUrl });
+      setMessage({ kind: "ok", text: "Connected to T3 Code." });
+    } catch (e) {
+      setMessage({ kind: "err", text: errorMessage(e) });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const disconnect = async () => {
+    setStatus(await native.t3Disconnect());
+    setMessage({ kind: "ok", text: "Disconnected." });
+  };
+
+  const testHex = async () => {
+    setHex("Checking…");
+    try {
+      setHex(`Hex is running (${await native.hexStatus()}).`);
+    } catch (e) {
+      setHex(errorMessage(e));
+    }
+  };
+
+  const expires = status?.expiresAtMs ? new Date(status.expiresAtMs).toLocaleDateString() : null;
+
+  return (
+    <div className="settings">
+      <h1>T3 Overlay</h1>
+
+      <section>
+        <h2>T3 Code server</h2>
+        <p className="hint">
+          The address of the machine running T3 Code, e.g. its Tailscale IP: <code>http://100.x.y.z:3773</code>.
+          Connecting opens T3's approval page in your browser. Pick <b>full access</b> there if your threads
+          run in full-access mode, otherwise T3 won't let the overlay send to them.
+        </p>
+        <div className="row">
+          <input
+            className="grow"
+            placeholder="http://100.x.y.z:3773"
+            value={config.serverUrl}
+            onChange={(e) => set("serverUrl", e.target.value)}
+          />
+          {status?.connected ? (
+            <button onClick={disconnect}>Disconnect</button>
+          ) : (
+            <button className="primary" disabled={busy === "connect"} onClick={connect}>
+              {busy === "connect" ? "Waiting…" : "Connect"}
+            </button>
+          )}
+        </div>
+        <p className={`status ${status?.connected ? "ok" : "err"}`}>
+          {status?.connected ? `Connected · credential valid until ${expires}` : "Not connected"}
+        </p>
+      </section>
+
+      <section>
+        <h2>Hotkeys</h2>
+        <label>
+          Open / close inbox
+          <HotkeyInput value={config.hotkeyInbox} onChange={(v) => set("hotkeyInbox", v)} />
+        </label>
+        <label className="check">
+          <input type="checkbox" checked={config.voiceEnabled} onChange={(e) => set("voiceEnabled", e.target.checked)} />
+          Voice replies with Hex
+        </label>
+        {config.voiceEnabled && (
+          <>
+            <label>
+              Hold to talk
+              <HotkeyInput value={config.hotkeyVoice} onChange={(v) => set("hotkeyVoice", v)} />
+            </label>
+            <p className="hint">
+              The overlay starts and stops <a href="#" onClick={(e) => { e.preventDefault(); openUrl("https://github.com/anomalyco/hex"); }}>Hex</a> itself and
+              gets the text back directly. Hex never pastes, so nothing can end up in League chat. Your normal Hex
+              shortcut keeps working outside the game.
+            </p>
+            <div className="row">
+              <button onClick={testHex}>Test Hex connection</button>
+              {hex && <span className="hint">{hex}</span>}
+            </div>
+          </>
+        )}
+        <p className="hint">Avoid keys League uses. Hotkeys are taken from the game while the overlay runs.</p>
+      </section>
+
+      <section>
+        <h2>Behaviour</h2>
+        <label className="check">
+          <input type="checkbox" checked={config.openOnDeath} onChange={(e) => set("openOnDeath", e.target.checked)} />
+          Open the inbox while I'm dead
+        </label>
+        <label className="check">
+          <input type="checkbox" checked={config.openOnGameEnd} onChange={(e) => set("openOnGameEnd", e.target.checked)} />
+          Open the inbox when the game ends
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={config.tickerOutsideGame}
+            onChange={(e) => set("tickerOutsideGame", e.target.checked)}
+          />
+          Show the ticker outside of games too
+        </label>
+        <div className="row">
+          <label>
+            Show threads active in the last
+            <input
+              type="number"
+              min={1}
+              max={336}
+              value={config.recentHours}
+              onChange={(e) => set("recentHours", Number(e.target.value))}
+            />
+            hours
+          </label>
+        </div>
+        <div className="row">
+          <label>
+            Check T3 every
+            <input
+              type="number"
+              min={2}
+              max={60}
+              value={config.pollSeconds}
+              onChange={(e) => set("pollSeconds", Number(e.target.value))}
+            />
+            seconds
+          </label>
+        </div>
+      </section>
+
+      <div className="row footer">
+        <button className="primary" disabled={busy === "save"} onClick={save}>
+          Save
+        </button>
+        {message && <span className={`status ${message.kind}`}>{message.text}</span>}
+      </div>
+      <p className="hint">
+        League must run in <b>Borderless</b> or <b>Windowed</b> mode for the overlay to show. Close this window anytime;
+        the overlay keeps running in the tray.
+      </p>
+    </div>
+  );
+}
