@@ -1,7 +1,9 @@
 name: Build
 
-# Every push to main publishes a signed release (v0.1.<run number>). Installed overlays pick
-# it up through the updater and install it automatically. Pull requests only build.
+# Pushes and pull requests only run the checks (typecheck + tests).
+# A release is built only when asked for: run this workflow by hand on main
+# (Actions → Build → Run workflow, or `gh workflow run build.yml`). That publishes a signed
+# release v0.1.<run number>, and installed overlays update to it automatically.
 
 on:
   push:
@@ -18,7 +20,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  RELEASE: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+  RELEASE: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
 
 jobs:
   windows:
@@ -75,11 +77,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release edit "v${{ steps.tauri.outputs.appVersion }}" --draft=false --latest
 
-      - name: Build installer
-        if: env.RELEASE != 'true'
-        run: npm run tauri build
-
       - uses: actions/upload-artifact@v4
+        if: env.RELEASE == 'true'
         with:
           name: t3-overlay-windows
           path: |

@@ -5,7 +5,7 @@
 Read and answer your [T3 Code](https://t3.codes) agents while playing League of Legends, without alt-tabbing.
 
 - **While you're alive:** a small ticker in the corner shows which agents are working and which have replied. When an agent finishes, the first line of its reply pops up for a few seconds.
-- **While you're dead:** the **Respawn Inbox** opens on the left of the screen, clear of the shop. Drag it by its tab bar to wherever suits your HUD; double-click the tab bar to put it back. It shows your last message, the agent's reply, and a reply box, with a bar counting down to your respawn. It closes again when you respawn.
+- **While you're dead:** the **Respawn Inbox** opens on the left of the screen, clear of the shop. Drag it by its tab bar to wherever suits your HUD; double-click the tab bar to put it back. It shows your last message, the agent's reply, and a reply box, with a bar counting down to your respawn. It stays open after you respawn, and gives the keyboard back to League, until you send a message or close it with `Esc` or `×`.
 - **Reply by typing or by voice:** hold a key, talk, and let go. [Hex](https://github.com/anomalyco/hex) turns your speech into text and the overlay sends it to the thread.
 
 <p>
@@ -48,11 +48,11 @@ The overlay keeps running in the system tray. Right-click the tray icon to open 
 | Switch threads | `Ctrl+Shift+Q` / `Ctrl+Shift+E` | Previous / next thread. Only active while the inbox is open, so League keeps these keys otherwise. Scrolling the mouse wheel over the tabs does the same. |
 | In the inbox | `Enter` / `Shift+Enter` / `Tab` / `Esc` | Send / new line / next thread / close |
 
-All hotkeys can be changed in Settings. After you send a message, focus goes straight back to League.
+All hotkeys can be changed in Settings. After you send a message, typed or spoken, the inbox closes and focus goes straight back to League.
 
 ## Updates
 
-Every push to `main` publishes a signed release. The overlay checks for a new one every 5 minutes, downloads it in the background, and installs it silently as soon as you're not using it: inbox closed, not dictating. That works mid-game too. The overlay disappears for a few seconds, comes back on its own without taking focus from League, and briefly shows what changed.
+New versions are published as signed releases. Pushes to `main` only run the checks, and a release is built when the Build workflow is run by hand. The overlay checks for a new one every 5 minutes, downloads it in the background, and installs it silently as soon as you're not using it: inbox closed, not dictating. That works mid-game too. The overlay disappears for a few seconds, comes back on its own without taking focus from League, and briefly shows what changed.
 
 To update right now, even mid-game: open the inbox and click the version in its bottom-right corner. It shows **⬆ update to v…** once a new version is downloaded. **Update now** in the tray menu does the same. To turn automatic updates off, use **Settings → Updates**. Updates are signed, and the overlay refuses any installer that isn't signed with the project's key.
 

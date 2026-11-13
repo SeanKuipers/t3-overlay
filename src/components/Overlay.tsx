@@ -21,9 +21,10 @@ export function Overlay() {
   const update = useUpdate();
   const t3 = useT3(config?.pollSeconds ?? 4, config?.recentHours ?? 12);
 
+  // Open until you send a message or close it (Esc / ×), whether opened by the hotkey or
+  // by dying. Respawning doesn't close it; it only hands keyboard focus back to League.
   const [pinned, setPinned] = useState(false);
   const [focused, setFocused] = useState(document.hasFocus());
-  const [deathDismissed, setDeathDismissed] = useState(false);
   const [endDismissed, setEndDismissed] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -34,10 +35,7 @@ export function Overlay() {
   const voiceTarget = useRef<{ id: string; title: string } | null>(null);
   const voiceTimer = useRef<number | undefined>(undefined);
 
-  const visible =
-    pinned ||
-    (game.dead && !!config?.openOnDeath && !deathDismissed) ||
-    (game.gameEnded && !!config?.openOnGameEnd && !endDismissed);
+  const visible = pinned || (game.gameEnded && !!config?.openOnGameEnd && !endDismissed);
 
   // Keyboard focus tracking.
   useEffect(() => {
@@ -55,11 +53,12 @@ export function Overlay() {
   const prev = useRef(game);
   useEffect(() => {
     const was = prev.current;
-    if (!was.dead && game.dead) setDeathDismissed(false);
-    if (was.dead && !game.dead && !pinned && document.hasFocus()) native.releaseOverlay();
+    if (!was.dead && game.dead && config?.openOnDeath) setPinned(true);
+    // Respawned: keep the inbox up, but give the keyboard back so you can play.
+    if (was.dead && !game.dead && document.hasFocus()) native.releaseOverlay();
     if (!was.inGame && game.inGame) setEndDismissed(false);
     prev.current = game;
-  }, [game, pinned]);
+  }, [game, config?.openOnDeath]);
 
   // Keep a valid selection: first unread, else the newest thread.
   useEffect(() => {
@@ -78,10 +77,13 @@ export function Overlay() {
 
   const close = useCallback(() => {
     setPinned(false);
-    if (game.dead) setDeathDismissed(true);
     if (game.gameEnded) setEndDismissed(true);
     if (document.hasFocus()) native.releaseOverlay();
-  }, [game.dead, game.gameEnded]);
+  }, [game.gameEnded]);
+  const closeRef = useRef(close);
+  closeRef.current = close;
+  const inGameRef = useRef(game.inGame);
+  inGameRef.current = game.inGame;
 
   const focusInput = useCallback(async () => {
     await native.focusOverlay();
@@ -141,12 +143,9 @@ export function Overlay() {
     const ok = await sendTo(selected.threadId, drafts[selected.threadId] ?? "");
     if (!ok) return;
     setDrafts((d) => ({ ...d, [selected.threadId]: "" }));
-    // Straight back to the game.
-    if (game.inGame) {
-      if (game.dead || game.gameEnded) native.releaseOverlay();
-      else close();
-    }
-  }, [selected, drafts, sendTo, game.inGame, game.dead, game.gameEnded, close]);
+    // Sent: close and go straight back to the game.
+    if (game.inGame) close();
+  }, [selected, drafts, sendTo, game.inGame, close]);
 
   // Voice: Hex records while the key is held; the transcript goes to the target thread.
   const threadsRef = useRef(t3.threads);
@@ -189,6 +188,8 @@ export function Overlay() {
                 : { phase: "error", target: target.title, text: event.text, message: "Sending failed." },
             );
             hideLater(ok ? 3500 : 6000);
+            // A voice reply counts as sending too: close the inbox if it was open.
+            if (ok && visibleRef.current && inGameRef.current) closeRef.current();
             break;
           }
           case "cancelled":
