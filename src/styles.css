@@ -557,7 +557,8 @@ html[data-view="settings"] body {
 .settings input[type="number"] {
   width: 70px;
 }
-.settings input:not([type="checkbox"]) {
+.settings input:not([type="checkbox"]),
+.settings select {
   background: #0c0e14;
   border: 1px solid #2b2f3a;
   color: #fff;

@@ -187,6 +187,22 @@ export function Settings() {
       </section>
 
       <section>
+        <h2>Sending</h2>
+        <label>
+          Enter sends as
+          <select value={config.sendMode} onChange={(e) => set("sendMode", e.target.value as Config["sendMode"])}>
+            <option value="queue">Queue: next turn, after the current one</option>
+            <option value="steer">Steer: into the turn running now</option>
+            <option value="auto">Auto: T3 decides</option>
+          </select>
+        </label>
+        <p className="hint">
+          <b>Ctrl+Enter</b> sends the other way ({config.sendMode === "steer" ? "queue" : "steer"}). Voice replies use the
+          Enter mode. Steering an agent that isn't working just starts a new turn.
+        </p>
+      </section>
+
+      <section>
         <h2>Behaviour</h2>
         <label className="check">
           <input type="checkbox" checked={config.openOnDeath} onChange={(e) => set("openOnDeath", e.target.checked)} />

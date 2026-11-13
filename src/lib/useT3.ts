@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { errorMessage, isT3Error, native, on, type ConnectionStatus } from "./native";
+import { errorMessage, isT3Error, native, on, type ConnectionStatus, type SendMode } from "./native";
 import {
   isWorking,
   listRecentThreads,
@@ -132,8 +132,8 @@ export function useT3(pollSeconds: number, recentHours: number) {
   }, []);
 
   const send = useCallback(
-    async (threadId: string, text: string) => {
-      const result = await sendMessage(threadId, text);
+    async (threadId: string, text: string, mode: SendMode) => {
+      const result = await sendMessage(threadId, text, mode);
       // Show it as working right away; the next poll fills in the details.
       setThreads((list) =>
         list.map((t) => (t.threadId === threadId ? { ...t, status: "running", unread: false } : t)),

@@ -27,6 +27,9 @@ pub struct Config {
     pub recent_hours: u32,
     /// How often T3 is polled, in seconds.
     pub poll_seconds: u32,
+    /// How Enter sends a reply: "queue" (next turn), "steer" (into the running turn) or
+    /// "auto" (T3 decides). Ctrl+Enter sends the other of queue/steer.
+    pub send_mode: String,
     /// Install new releases automatically when the overlay isn't in use.
     pub auto_update: bool,
 }
@@ -45,6 +48,7 @@ impl Default for Config {
             ticker_outside_game: false,
             recent_hours: 12,
             poll_seconds: 4,
+            send_mode: "queue".into(),
             auto_update: true,
         }
     }

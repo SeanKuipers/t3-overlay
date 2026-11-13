@@ -3,7 +3,7 @@ import Markdown from "react-markdown";
 import { isWorking } from "../lib/t3";
 import { useTicker, type Game } from "../lib/useGame";
 import type { ThreadView } from "../lib/useT3";
-import type { UpdateStatus } from "../lib/native";
+import type { SendMode, UpdateStatus } from "../lib/native";
 import { UpdateControl } from "./UpdateControl";
 
 interface Props {
@@ -23,7 +23,9 @@ interface Props {
   onSelect: (threadId: string) => void;
   onCycle: (step: number) => void;
   onDraft: (text: string) => void;
-  onSubmit: () => void;
+  /** `alternate`: Ctrl+Enter, i.e. the other of queue/steer. */
+  onSubmit: (alternate: boolean) => void;
+  sendMode: SendMode;
   onClose: () => void;
   onFocusRequest: () => void;
 }
@@ -34,6 +36,12 @@ function dotClass(t: ThreadView) {
   if (t.status === "failed" || t.status === "interrupted") return "dot fail";
   return "dot idle";
 }
+
+const MODE_HELP: Record<SendMode, string> = {
+  queue: "Runs as the next turn, after the agent finishes what it's doing",
+  steer: "Added to the turn the agent is working on right now",
+  auto: "Starts an idle thread, steers a running one",
+};
 
 function shortKey(hotkey: string) {
   return hotkey.replace(/Ctrl/g, "⌃").replace(/Shift/g, "⇧").replace(/Alt/g, "⌥").replace(/\+/g, "");
@@ -140,7 +148,7 @@ export function Inbox(props: Props) {
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      props.onSubmit();
+      props.onSubmit(e.ctrlKey || e.metaKey);
     } else if (e.key === "Escape") {
       e.preventDefault();
       props.onClose();
@@ -227,9 +235,18 @@ export function Inbox(props: Props) {
         />
       </div>
       <div className="hints">
-        <span>
-          <span className="key">↵</span> {props.sending ? "sending…" : "send"}
-        </span>
+        {props.sending ? (
+          <span>sending…</span>
+        ) : (
+          <>
+            <span title={MODE_HELP[props.sendMode]}>
+              <span className="key">↵</span> {props.sendMode}
+            </span>
+            <span title={MODE_HELP[props.sendMode === "steer" ? "queue" : "steer"]}>
+              <span className="key">⌃↵</span> {props.sendMode === "steer" ? "queue" : "steer"}
+            </span>
+          </>
+        )}
         {props.navHotkeys && threads.length > 1 && (
           <span title="Scrolling over the tabs works too">
             <span className="key">{shortKey(props.navHotkeys[0])}</span>

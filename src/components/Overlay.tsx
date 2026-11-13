@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { errorMessage, native, on, type Config, type VoiceEvent } from "../lib/native";
+import { errorMessage, native, on, type Config, type SendMode, type VoiceEvent } from "../lib/native";
+import { isWorking } from "../lib/t3";
 import { useGame } from "../lib/useGame";
 import { useHitRegions } from "../lib/useHitRegions";
 import { useT3 } from "../lib/useT3";
@@ -119,14 +120,27 @@ export function Overlay() {
   );
   useEffect(() => on<number>("hotkey://cycle", (step) => cycle(step)), [cycle]);
 
+  // Enter uses the configured mode; Ctrl+Enter the other of queue/steer.
+  const modeFor = useCallback(
+    (threadId: string, alternate: boolean): SendMode => {
+      const base = config?.sendMode ?? "queue";
+      const mode: SendMode = alternate ? (base === "steer" ? "queue" : "steer") : base;
+      // Nothing to steer when the agent isn't working: just start the turn.
+      const thread = t3.threads.find((t) => t.threadId === threadId);
+      if (mode === "steer" && thread && !isWorking(thread.status)) return "auto";
+      return mode;
+    },
+    [config?.sendMode, t3.threads],
+  );
+
   const sendTo = useCallback(
-    async (threadId: string, text: string) => {
+    async (threadId: string, text: string, alternate = false) => {
       const message = text.trim();
       if (!message) return false;
       setSending(true);
       setSendError(null);
       try {
-        await t3.send(threadId, message);
+        await t3.send(threadId, message, modeFor(threadId, alternate));
         return true;
       } catch (e) {
         setSendError(errorMessage(e));
@@ -135,12 +149,12 @@ export function Overlay() {
         setSending(false);
       }
     },
-    [t3.send],
+    [t3.send, modeFor],
   );
 
-  const submit = useCallback(async () => {
+  const submit = useCallback(async (alternate: boolean) => {
     if (!selected) return;
-    const ok = await sendTo(selected.threadId, drafts[selected.threadId] ?? "");
+    const ok = await sendTo(selected.threadId, drafts[selected.threadId] ?? "", alternate);
     if (!ok) return;
     setDrafts((d) => ({ ...d, [selected.threadId]: "" }));
     // Sent: close and go straight back to the game.
@@ -245,6 +259,7 @@ export function Overlay() {
           focused={focused}
           inputRef={inputRef}
           voiceHotkey={config?.voiceEnabled ? config.hotkeyVoice : null}
+          sendMode={config?.sendMode ?? "queue"}
           update={update}
           navHotkeys={config && config.hotkeyPrev && config.hotkeyNext ? [config.hotkeyPrev, config.hotkeyNext] : null}
           onSelect={setSelectedId}

@@ -67,6 +67,9 @@ fn save_config(app: AppHandle, state: State<'_, AppState>, mut config: Config) -
     config.server_url = config::normalize_server_url(&config.server_url);
     config.poll_seconds = config.poll_seconds.clamp(2, 60);
     config.recent_hours = config.recent_hours.clamp(1, 24 * 14);
+    if !["queue", "steer", "auto"].contains(&config.send_mode.as_str()) {
+        config.send_mode = "queue".into();
+    }
     register_hotkeys(&app, &config)?;
     config::save_config(&app, &config).map_err(|e| e.to_string())?;
     app.state::<update::Updates>().auto.store(config.auto_update, Ordering::SeqCst);

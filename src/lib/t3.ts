@@ -1,6 +1,6 @@
 // T3 Code data access over the MCP tools (t3_project_list, t3_thread_list, t3_thread_read,
 // t3_thread_send). Shapes follow @t3tools/contracts' orchestratorMcp schemas.
-import { native } from "./native";
+import { native, type SendMode } from "./native";
 
 export type ThreadStatus =
   | "idle"
@@ -170,11 +170,11 @@ export async function readConversation(thread: Thread): Promise<Conversation> {
   return { prompt, replies, replyKey: last ? `${last.itemId}@${last.updatedAt}` : null };
 }
 
-export async function sendMessage(threadId: string, message: string) {
+export async function sendMessage(threadId: string, message: string, mode: SendMode) {
   return native.t3Call<{ delivery: string; status: string }>("t3_thread_send", {
     threadId,
     message,
-    mode: "auto",
+    mode,
     clientRequestId: crypto.randomUUID(),
   });
 }

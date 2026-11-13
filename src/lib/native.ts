@@ -15,7 +15,11 @@ export interface Config {
   recentHours: number;
   pollSeconds: number;
   autoUpdate: boolean;
+  sendMode: SendMode;
 }
+
+/** How T3 delivers a message: as the next turn, into the running turn, or T3's choice. */
+export type SendMode = "queue" | "steer" | "auto";
 
 export type UpdateStatus =
   | { phase: "idle" | "checking" | "upToDate" }
