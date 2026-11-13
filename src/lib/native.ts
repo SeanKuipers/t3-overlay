@@ -16,6 +16,7 @@ export interface Config {
   pollSeconds: number;
   autoUpdate: boolean;
   sendMode: SendMode;
+  settingsVersion: number;
 }
 
 /** How T3 delivers a message: as the next turn, into the running turn, or T3's choice. */

@@ -91,7 +91,7 @@ async function listProjects(): Promise<Project[]> {
 }
 
 /** Top-level threads updated in the last `hours`, newest first. */
-export async function listRecentThreads(hours: number, max = 8): Promise<Thread[]> {
+export async function listRecentThreads(hours: number, max = 6): Promise<Thread[]> {
   const projects = await listProjects();
   const titles = new Map(projects.map((p) => [p.id, p.title]));
   const since = Date.now() - hours * 3_600_000;

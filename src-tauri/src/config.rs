@@ -32,6 +32,27 @@ pub struct Config {
     pub send_mode: String,
     /// Install new releases automatically when the overlay isn't in use.
     pub auto_update: bool,
+    /// Bumped when a default changes, so saved settings can be migrated once.
+    /// Missing in files from before versioning, which reads as 0.
+    #[serde(default)]
+    pub settings_version: u32,
+}
+
+const SETTINGS_VERSION: u32 = 1;
+
+impl Config {
+    /// Brings settings saved by an older version up to date. Returns true if anything changed.
+    fn migrate(&mut self) -> bool {
+        if self.settings_version >= SETTINGS_VERSION {
+            return false;
+        }
+        // v1: show far fewer threads. 12 hours was the old default; keep any value chosen by hand.
+        if self.settings_version < 1 && self.recent_hours == 12 {
+            self.recent_hours = 2;
+        }
+        self.settings_version = SETTINGS_VERSION;
+        true
+    }
 }
 
 impl Default for Config {
@@ -46,10 +67,11 @@ impl Default for Config {
             open_on_death: true,
             open_on_game_end: true,
             ticker_outside_game: false,
-            recent_hours: 12,
+            recent_hours: 2,
             poll_seconds: 4,
             send_mode: "queue".into(),
             auto_update: true,
+            settings_version: SETTINGS_VERSION,
         }
     }
 }
@@ -86,7 +108,11 @@ fn write_json<T: Serialize>(path: PathBuf, value: &T) -> anyhow::Result<()> {
 }
 
 pub fn load_config(app: &AppHandle) -> Config {
-    read_json(dir(app).join("config.json")).unwrap_or_default()
+    let mut config: Config = read_json(dir(app).join("config.json")).unwrap_or_default();
+    if config.migrate() {
+        let _ = save_config(app, &config);
+    }
+    config
 }
 
 pub fn save_config(app: &AppHandle, config: &Config) -> anyhow::Result<()> {
@@ -124,6 +150,22 @@ pub fn normalize_server_url(raw: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn migrates_old_recent_hours_default_once() {
+        let mut old: Config = serde_json::from_str(r#"{"serverUrl":"http://x:3773","recentHours":12}"#).unwrap();
+        assert_eq!(old.settings_version, 0);
+        assert!(old.migrate());
+        assert_eq!(old.recent_hours, 2);
+        assert!(!old.migrate());
+
+        let mut custom: Config = serde_json::from_str(r#"{"recentHours":24}"#).unwrap();
+        custom.migrate();
+        assert_eq!(custom.recent_hours, 24);
+
+        assert_eq!(Config::default().recent_hours, 2);
+        assert!(!Config::default().migrate());
+    }
 
     #[test]
     fn normalizes_urls() {

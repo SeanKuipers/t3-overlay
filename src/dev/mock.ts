@@ -34,7 +34,7 @@ export async function installMock(scenario: string) {
       const args = payload as Record<string, any>;
       switch (cmd) {
         case "get_config":
-          return { serverUrl: "http://100.88.0.1:3773", hotkeyInbox: "Ctrl+Shift+Space", hotkeyVoice: "Ctrl+Shift+V", voiceEnabled: true, hotkeyPrev: "Ctrl+Shift+Q", hotkeyNext: "Ctrl+Shift+E", openOnDeath: true, openOnGameEnd: true, tickerOutsideGame: true, recentHours: 12, pollSeconds: 4, autoUpdate: true, sendMode: "queue" };
+          return { serverUrl: "http://100.88.0.1:3773", hotkeyInbox: "Ctrl+Shift+Space", hotkeyVoice: "Ctrl+Shift+V", voiceEnabled: true, hotkeyPrev: "Ctrl+Shift+Q", hotkeyNext: "Ctrl+Shift+E", openOnDeath: true, openOnGameEnd: true, tickerOutsideGame: true, recentHours: 2, pollSeconds: 4, autoUpdate: true, sendMode: "queue", settingsVersion: 1 };
         case "t3_status":
           return { serverUrl: "http://100.88.0.1:3773", connected: true, expiresAtMs: now + 29 * 86_400_000 };
         case "t3_call": {

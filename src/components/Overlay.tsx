@@ -20,7 +20,7 @@ export function Overlay() {
 
   const game = useGame();
   const update = useUpdate();
-  const t3 = useT3(config?.pollSeconds ?? 4, config?.recentHours ?? 12);
+  const t3 = useT3(config?.pollSeconds ?? 4, config?.recentHours ?? 2);
 
   // Open until you send a message or close it (Esc / ×), whether opened by the hotkey or
   // by dying. Respawning doesn't close it; it only hands keyboard focus back to League.
