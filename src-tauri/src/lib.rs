@@ -70,6 +70,9 @@ fn save_config(app: AppHandle, state: State<'_, AppState>, mut config: Config) -
     if !["queue", "steer", "auto"].contains(&config.send_mode.as_str()) {
         config.send_mode = "queue".into();
     }
+    if !["client", "always", "off"].contains(&config.hub_mode.as_str()) {
+        config.hub_mode = "client".into();
+    }
     register_hotkeys(&app, &config)?;
     config::save_config(&app, &config).map_err(|e| e.to_string())?;
     app.state::<update::Updates>().auto.store(config.auto_update, Ordering::SeqCst);
@@ -189,6 +192,11 @@ fn set_nav_hotkeys(app: AppHandle, state: State<'_, AppState>, active: bool) {
             log::warn!("thread hotkey {shortcut:?}: {e}");
         }
     }
+}
+
+#[tauri::command]
+fn game_state() -> game::GameState {
+    game::current()
 }
 
 #[tauri::command]
@@ -433,6 +441,7 @@ pub fn run() {
             voice_cancel,
             set_overlay_busy,
             set_nav_hotkeys,
+            game_state,
             update_status,
             update_check,
             update_install_now,

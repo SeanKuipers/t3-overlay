@@ -6,6 +6,7 @@ import { useHitRegions } from "../lib/useHitRegions";
 import { useT3 } from "../lib/useT3";
 import { useUpdate } from "../lib/useUpdate";
 import { UpdatePill } from "./UpdateControl";
+import { Hub } from "./Hub";
 import { Inbox } from "./Inbox";
 import { Notices, type NoticeView } from "./Notices";
 import { Ticker } from "./Ticker";
@@ -42,6 +43,18 @@ export function Overlay() {
 
   const visible = pinned || deathOpen || (game.gameEnded && !!config?.openOnGameEnd && !endDismissed);
 
+  // Outside games the chat hub docks on the left instead of the floating inbox.
+  const hubMode = config?.hubMode ?? "client";
+  const hubFor = (g: { inGame: boolean; clientOpen: boolean }) =>
+    !g.inGame && hubMode !== "off" && (hubMode === "always" || g.clientOpen);
+  const hubShown = !!config && hubFor(game);
+  const [hubChat, setHubChat] = useState(false);
+  const inboxVisible = visible && !hubShown;
+  /** A conversation is on screen (the inbox, or the hub's chat pane). */
+  const viewing = inboxVisible || (hubShown && hubChat);
+  const openRef = useRef(false);
+  openRef.current = pinned || deathOpen;
+
   // Keyboard focus tracking.
   useEffect(() => {
     const onFocus = () => setFocused(true);
@@ -66,8 +79,15 @@ export function Overlay() {
       if (document.hasFocus()) native.releaseOverlay();
     }
     if (!was.inGame && game.inGame) setEndDismissed(false);
+    // Left the game: whatever was open in the inbox carries over into the hub.
+    if (was.inGame && !game.inGame && config && hubFor(game)) {
+      if (openRef.current) setHubChat(true);
+      setPinned(false);
+      setDeathOpen(false);
+    }
     prev.current = game;
-  }, [game, config?.openOnDeath]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game, config?.openOnDeath, hubMode]);
 
   // Keep a valid selection: first unread, else the newest thread.
   useEffect(() => {
@@ -81,8 +101,8 @@ export function Overlay() {
 
   // Reading a thread in the open inbox marks it read.
   useEffect(() => {
-    if (visible && selected?.unread) t3.markRead(selected.threadId);
-  }, [visible, selected?.threadId, selected?.unread, t3.markRead]);
+    if (viewing && selected?.unread) t3.markRead(selected.threadId);
+  }, [viewing, selected?.threadId, selected?.unread, t3.markRead]);
 
   const close = useCallback(() => {
     setPinned(false);
@@ -100,25 +120,37 @@ export function Overlay() {
     requestAnimationFrame(() => inputRef.current?.focus());
   }, []);
 
+  const closeHubChat = useCallback(() => {
+    setHubChat(false);
+    if (document.hasFocus()) native.releaseOverlay();
+  }, []);
+
   // Inbox hotkey / tray: a plain toggle. Open (and focus the reply box), or close.
+  // With the hub showing, it opens/closes the hub's chat pane instead.
   useEffect(
     () =>
       on("hotkey://inbox", () => {
-        if (visible) close();
+        if (hubShown) {
+          if (hubChat) closeHubChat();
+          else {
+            setHubChat(true);
+            focusInput();
+          }
+        } else if (inboxVisible) close();
         else {
           setPinned(true);
           focusInput();
         }
       }),
-    [visible, close, focusInput],
+    [hubShown, hubChat, inboxVisible, close, closeHubChat, focusInput],
   );
   // Esc closes the inbox, focused or not (registered only while it's open).
-  useEffect(() => on("hotkey://close", () => visible && close()), [visible, close]);
+  useEffect(() => on("hotkey://close", () => inboxVisible && close()), [inboxVisible, close]);
 
-  // Thread-switching hotkeys exist only while the inbox is open.
+  // Thread-switching hotkeys (and global Esc) exist only while the in-game inbox is open.
   useEffect(() => {
-    native.setNavHotkeys(visible);
-  }, [visible]);
+    native.setNavHotkeys(inboxVisible);
+  }, [inboxVisible]);
 
   const cycle = useCallback(
     (step: number) => {
@@ -175,8 +207,8 @@ export function Overlay() {
   // Voice: Hex records while the key is held; the transcript goes to the target thread.
   const threadsRef = useRef(t3.threads);
   threadsRef.current = t3.threads;
-  const visibleRef = useRef(visible);
-  visibleRef.current = visible;
+  const visibleRef = useRef(viewing);
+  visibleRef.current = viewing;
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
   useEffect(
@@ -230,7 +262,7 @@ export function Overlay() {
   );
 
   // Updates install only while the overlay isn't in use.
-  const busy = visible || !!voice || sending;
+  const busy = inboxVisible || !!voice || sending || (hubShown && hubChat && focused);
   useEffect(() => {
     native.setOverlayBusy(busy);
   }, [busy]);
@@ -248,16 +280,18 @@ export function Overlay() {
   const notices: NoticeView[] = updateNotice ? [updateNotice, ...t3.notices] : t3.notices;
 
   // The ticker stays up while the inbox is open too, so it's always there to click.
-  const showTicker = game.inGame || !!config?.tickerOutsideGame;
+  // (The hub replaces it outside games.)
+  const showTicker = (game.inGame || !!config?.tickerOutsideGame) && !hubShown;
 
   // Clicking the ticker or a notice opens that thread in the inbox, ready to reply.
   const openThread = useCallback(
     (threadId: string) => {
       setSelectedId(threadId);
-      setPinned(true);
+      if (hubShown) setHubChat(true);
+      else setPinned(true);
       focusInput();
     },
-    [focusInput],
+    [focusInput, hubShown],
   );
   const openNotice = useCallback(
     (notice: NoticeView) => {
@@ -268,7 +302,7 @@ export function Overlay() {
     [t3.dismissNotice, openThread],
   );
 
-  useHitRegions([visible, t3.threads.length, selectedId, sending]);
+  useHitRegions([inboxVisible, hubShown, hubChat, t3.threads.length, selectedId, sending]);
 
   const draft = selected ? drafts[selected.threadId] ?? "" : "";
 
@@ -282,8 +316,33 @@ export function Overlay() {
           onOpenSettings={() => native.openSettings()}
         />
       )}
-      {!visible && <Notices notices={notices} onOpen={openNotice} />}
-      {visible && (
+      {!inboxVisible && <Notices notices={notices} onOpen={openNotice} />}
+      {hubShown && (
+        <Hub
+          threads={t3.threads}
+          selected={selected}
+          chatOpen={hubChat}
+          connected={!!t3.status?.connected}
+          error={t3.error}
+          draft={draft}
+          sending={sending}
+          sendError={sendError}
+          focused={focused}
+          inputRef={inputRef}
+          voiceHotkey={config?.voiceEnabled ? config.hotkeyVoice : null}
+          sendMode={config?.sendMode ?? "queue"}
+          update={update}
+          navHotkeys={null}
+          onOpen={openThread}
+          onCloseChat={closeHubChat}
+          onCycle={cycle}
+          onDraft={(text) => selected && setDrafts((d) => ({ ...d, [selected.threadId]: text }))}
+          onSubmit={submit}
+          onFocusRequest={focusInput}
+          onOpenSettings={() => native.openSettings()}
+        />
+      )}
+      {inboxVisible && (
         <Inbox
           threads={t3.threads}
           selected={selected}
@@ -308,7 +367,7 @@ export function Overlay() {
         />
       )}
       {voice && <VoiceHud voice={voice} />}
-      {!visible && <UpdatePill status={update.status} />}
+      {!inboxVisible && <UpdatePill status={update.status} />}
     </div>
   );
 }

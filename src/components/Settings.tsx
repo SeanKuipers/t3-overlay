@@ -203,6 +203,22 @@ export function Settings() {
       </section>
 
       <section>
+        <h2>Chat hub</h2>
+        <label>
+          Outside games, dock the hub on the left
+          <select value={config.hubMode} onChange={(e) => set("hubMode", e.target.value as Config["hubMode"])}>
+            <option value="client">While the League client is open</option>
+            <option value="always">Always</option>
+            <option value="off">Never</option>
+          </select>
+        </label>
+        <p className="hint">
+          Your recent threads, with search, docked on the left. Click one to open it beside the list. Drag the edge to
+          resize, or collapse it to a thin strip. It hides when a game starts.
+        </p>
+      </section>
+
+      <section>
         <h2>Behaviour</h2>
         <label className="check">
           <input type="checkbox" checked={config.openOnDeath} onChange={(e) => set("openOnDeath", e.target.checked)} />

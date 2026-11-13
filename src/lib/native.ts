@@ -16,6 +16,7 @@ export interface Config {
   pollSeconds: number;
   autoUpdate: boolean;
   sendMode: SendMode;
+  hubMode: "client" | "always" | "off";
   settingsVersion: number;
 }
 
@@ -44,6 +45,8 @@ export interface GameState {
   respawnSeconds: number;
   gameEnded: boolean;
   gameTime: number;
+  /** The League client window is open (not minimized). */
+  clientOpen: boolean;
 }
 
 export type VoiceEvent =
@@ -79,6 +82,7 @@ export const native = {
   hexStatus: () => invoke<string>("hex_status"),
   voiceCancel: () => invoke<void>("voice_cancel"),
   setNavHotkeys: (active: boolean) => invoke<void>("set_nav_hotkeys", { active }),
+  gameState: () => invoke<GameState>("game_state"),
   setOverlayBusy: (busy: boolean) => invoke<void>("set_overlay_busy", { busy }),
   updateStatus: () => invoke<UpdateStatus>("update_status"),
   updateCheck: () => invoke<void>("update_check"),

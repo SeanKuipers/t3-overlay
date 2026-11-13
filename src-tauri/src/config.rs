@@ -30,6 +30,9 @@ pub struct Config {
     /// How Enter sends a reply: "queue" (next turn), "steer" (into the running turn) or
     /// "auto" (T3 decides). Ctrl+Enter sends the other of queue/steer.
     pub send_mode: String,
+    /// When the chat hub docks on the left outside games: "client" (while the League client
+    /// is open), "always", or "off".
+    pub hub_mode: String,
     /// Install new releases automatically when the overlay isn't in use.
     pub auto_update: bool,
     /// Bumped when a default changes, so saved settings can be migrated once.
@@ -74,6 +77,7 @@ impl Default for Config {
             recent_hours: 2,
             poll_seconds: 4,
             send_mode: "queue".into(),
+            hub_mode: "client".into(),
             auto_update: true,
             settings_version: SETTINGS_VERSION,
         }

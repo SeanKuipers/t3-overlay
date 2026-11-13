@@ -6,10 +6,14 @@ Read and answer your [T3 Code](https://t3.codes) agents while playing League of 
 
 - **While you're alive:** a small ticker in the corner shows which agents are working and which have replied. When an agent finishes, the first line of its reply pops up for a few seconds. Click either one to open that thread in the inbox.
 - **While you're dead:** the **Respawn Inbox** opens on the left of the screen, clear of the shop. Drag it by its tab bar to wherever suits your HUD; double-click the tab bar to put it back. It shows your last message, the agent's reply, and a reply box, with a bar counting down to your respawn. It closes when you respawn, unless you've started typing a reply. In that case it stays open, and gives the keyboard back to League, until you send it or close the inbox with `Esc` or `×`.
+- **Outside games:** while the League client is open, a **chat hub** docks on the left. It lists your recent threads with a search box, and opens a conversation beside the list when you click one. Drag its edge to resize it, or collapse it to a thin strip. Its layout follows [OpenBot](https://github.com/CopilotKit/OpenBot)'s sidebar. Settings → Chat hub can show it always, or never.
 - **Reply by typing or by voice:** hold a key, talk, and let go. [Hex](https://github.com/anomalyco/hex) turns your speech into text and the overlay sends it to the thread.
 
 <p>
   <img src="docs/inbox.png" width="560" alt="Respawn Inbox">
+</p>
+<p>
+  <img src="docs/hub.png" width="620" alt="Chat hub outside games">
 </p>
 <p>
   <img src="docs/ticker.png" height="60" alt="Ticker">&nbsp;&nbsp;<img src="docs/voice.png" height="60" alt="Voice">

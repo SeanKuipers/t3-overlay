@@ -34,7 +34,7 @@ export async function installMock(scenario: string) {
       const args = payload as Record<string, any>;
       switch (cmd) {
         case "get_config":
-          return { serverUrl: "http://100.88.0.1:3773", hotkeyInbox: "Ctrl+Shift+Space", hotkeyVoice: "Ctrl+Shift+V", voiceEnabled: true, hotkeyPrev: "Ctrl+Shift+Q", hotkeyNext: "Ctrl+Shift+E", openOnDeath: true, openOnGameEnd: true, tickerOutsideGame: true, recentHours: 2, pollSeconds: 4, autoUpdate: true, sendMode: "queue", settingsVersion: 1 };
+          return { serverUrl: "http://100.88.0.1:3773", hotkeyInbox: "Ctrl+Shift+Space", hotkeyVoice: "Ctrl+Shift+V", voiceEnabled: true, hotkeyPrev: "Ctrl+Shift+Q", hotkeyNext: "Ctrl+Shift+E", openOnDeath: true, openOnGameEnd: true, tickerOutsideGame: true, recentHours: 2, pollSeconds: 4, autoUpdate: true, sendMode: "queue", hubMode: "client", settingsVersion: 2 };
         case "t3_status":
           return { serverUrl: "http://100.88.0.1:3773", connected: true, expiresAtMs: now + 29 * 86_400_000 };
         case "t3_call": {
@@ -48,6 +48,8 @@ export async function installMock(scenario: string) {
           if (args.tool === "t3_thread_send") return { delivery: "started", status: "running" };
           return null;
         }
+        case "game_state":
+          return { inGame: false, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 0, clientOpen: false };
         case "hex_status":
           return "idle";
         case "plugin:app|version":
@@ -65,7 +67,9 @@ export async function installMock(scenario: string) {
   // Make t1 count as a fresh, unread reply.
   localStorage.setItem("t3-overlay:seen", JSON.stringify({ t3: "a3@" + iso(200) }));
   const game =
-    scenario === "dead"
+    scenario === "hub" || scenario === "hubchat"
+      ? { inGame: false, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 0, clientOpen: true }
+      : scenario === "dead"
       ? { inGame: true, dead: true, respawnSeconds: 23, gameEnded: false, gameTime: 1085 }
       : scenario === "ended"
         ? { inGame: true, dead: false, respawnSeconds: 0, gameEnded: true, gameTime: 1900 }
@@ -74,5 +78,6 @@ export async function installMock(scenario: string) {
     emit("game://state", { ...game, respawnSeconds: game.dead ? 32 : 0 });
     setTimeout(() => emit("game://state", game), 50);
     if (scenario === "voice") emit("voice://state", { phase: "recording" });
+    if (scenario === "hubchat") setTimeout(() => emit("hotkey://inbox", null), 400);
   }, 300);
 }

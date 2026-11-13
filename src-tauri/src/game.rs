@@ -5,6 +5,7 @@
 
 use serde::Serialize;
 use serde_json::Value;
+use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
@@ -19,6 +20,15 @@ pub struct GameState {
     pub respawn_seconds: f64,
     pub game_ended: bool,
     pub game_time: f64,
+    /// The League client (lobby) window is open and not minimized.
+    pub client_open: bool,
+}
+
+/// The latest state, for windows that start listening after it was emitted.
+static LAST: Mutex<Option<GameState>> = Mutex::new(None);
+
+pub fn current() -> GameState {
+    LAST.lock().unwrap().clone().unwrap_or_default()
 }
 
 fn client() -> reqwest::Client {
@@ -70,7 +80,7 @@ pub fn parse_state(active_name: &str, players: &Value, events: Option<&Value>, s
         .and_then(|s| s.get("gameTime"))
         .and_then(Value::as_f64)
         .unwrap_or(0.0);
-    GameState { in_game: true, dead, respawn_seconds, game_ended, game_time }
+    GameState { in_game: true, dead, respawn_seconds, game_ended, game_time, client_open: false }
 }
 
 async fn poll_once(http: &reqwest::Client) -> GameState {
@@ -92,15 +102,39 @@ pub fn spawn_watcher(app: AppHandle) {
         let http = client();
         let mut last: Option<GameState> = None;
         loop {
-            let state = poll_once(&http).await;
+            let mut state = poll_once(&http).await;
+            state.client_open = platform::client_open();
             if last.as_ref() != Some(&state) {
                 let _ = app.emit("game://state", &state);
+                *LAST.lock().unwrap() = Some(state.clone());
                 last = Some(state.clone());
             }
             let delay = if state.in_game { 1000 } else { 3000 };
             tokio::time::sleep(Duration::from_millis(delay)).await;
         }
     });
+}
+
+#[cfg(windows)]
+mod platform {
+    use windows::core::{w, PCWSTR};
+    use windows::Win32::UI::WindowsAndMessaging::{FindWindowW, IsIconic, IsWindowVisible};
+
+    /// The League client's main window (LeagueClientUx) has the class `RCLIENT`.
+    pub fn client_open() -> bool {
+        unsafe {
+            FindWindowW(w!("RCLIENT"), PCWSTR::null())
+                .map(|h| IsWindowVisible(h).as_bool() && !IsIconic(h).as_bool())
+                .unwrap_or(false)
+        }
+    }
+}
+
+#[cfg(not(windows))]
+mod platform {
+    pub fn client_open() -> bool {
+        false
+    }
 }
 
 #[cfg(test)]

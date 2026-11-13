@@ -1,50 +1,16 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import Markdown from "react-markdown";
-import { isWorking } from "../lib/t3";
+import { dotClass } from "../lib/threadUi";
 import { useTicker, type Game } from "../lib/useGame";
 import type { ThreadView } from "../lib/useT3";
-import type { SendMode, UpdateStatus } from "../lib/native";
-import { UpdateControl } from "./UpdateControl";
+import { Conversation, type ConversationProps } from "./Conversation";
 
-interface Props {
+interface Props extends Omit<ConversationProps, "thread" | "threadCount" | "footer"> {
   threads: ThreadView[];
   selected: ThreadView | null;
-  connected: boolean;
-  error: string | null;
   game: Game;
-  draft: string;
-  sending: boolean;
-  sendError: string | null;
   focused: boolean;
-  inputRef: RefObject<HTMLTextAreaElement | null>;
-  voiceHotkey: string | null;
-  navHotkeys: [string, string] | null;
-  update: { version: string | null; status: UpdateStatus };
   onSelect: (threadId: string) => void;
-  onCycle: (step: number) => void;
-  onDraft: (text: string) => void;
-  /** `alternate`: Ctrl+Enter, i.e. the other of queue/steer. */
-  onSubmit: (alternate: boolean) => void;
-  sendMode: SendMode;
-  onClose: () => void;
   onFocusRequest: () => void;
-}
-
-function dotClass(t: ThreadView) {
-  if (isWorking(t.status)) return "dot run";
-  if (t.unread) return "dot new";
-  if (t.status === "failed" || t.status === "interrupted") return "dot fail";
-  return "dot idle";
-}
-
-const MODE_HELP: Record<SendMode, string> = {
-  queue: "Runs as the next turn, after the agent finishes what it's doing",
-  steer: "Added to the turn the agent is working on right now",
-  auto: "Starts an idle thread, steers a running one",
-};
-
-function shortKey(hotkey: string) {
-  return hotkey.replace(/Ctrl/g, "⌃").replace(/Shift/g, "⇧").replace(/Alt/g, "⌥").replace(/\+/g, "");
 }
 
 // ---------- position: draggable by the tab bar, remembered between games ----------
@@ -110,8 +76,6 @@ function useDrag(rootRef: RefObject<HTMLDivElement | null>) {
 export function Inbox(props: Props) {
   const { threads, selected, game } = props;
   const rootRef = useRef<HTMLDivElement>(null);
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const lastReplyRef = useRef<HTMLDivElement>(null);
   const selectedTabRef = useRef<HTMLButtonElement>(null);
   const drag = useDrag(rootRef);
   useTicker(game.dead);
@@ -131,32 +95,8 @@ export function Inbox(props: Props) {
     props.onCycle(delta > 0 ? 1 : -1);
   };
 
-  const replyKey = selected?.conversation?.replyKey;
-  // Jump to the start of the newest reply when switching threads or when it changes.
-  useEffect(() => {
-    const body = bodyRef.current;
-    const last = lastReplyRef.current;
-    if (body && last) body.scrollTop = Math.max(0, last.offsetTop - body.offsetTop - 8);
-    else if (body) body.scrollTop = body.scrollHeight;
-  }, [selected?.threadId, replyKey]);
-
   const remaining = game.respawnAt ? Math.max(0, (game.respawnAt - Date.now()) / 1000) : 0;
   const progress = game.respawnTotal > 0 ? 1 - remaining / game.respawnTotal : 0;
-  const conversation = selected?.conversation;
-  const replies = conversation?.replies ?? [];
-
-  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      props.onSubmit(e.ctrlKey || e.metaKey);
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      props.onClose();
-    } else if (e.key === "Tab") {
-      e.preventDefault();
-      props.onCycle(e.shiftKey ? -1 : 1);
-    }
-  };
 
   return (
     <>
@@ -192,80 +132,18 @@ export function Inbox(props: Props) {
         </button>
       </div>
 
-      <div className="body" ref={bodyRef}>
-        {!props.connected ? (
-          <p className="muted">Not connected to T3 Code. Open Settings from the tray icon.</p>
-        ) : threads.length === 0 ? (
-          <p className="muted">{props.error ?? "No recent threads."}</p>
-        ) : !conversation ? (
-          <p className="muted">Loading…</p>
-        ) : (
-          <>
-            <div className="project">{selected?.projectTitle}</div>
-            {conversation.prompt && <div className="prompt">You: {conversation.prompt.text}</div>}
-            {replies.length === 0 && !isWorking(selected!.status) && <p className="muted">No reply yet.</p>}
-            {replies.map((item, index) => (
-              <div
-                key={item.itemId}
-                ref={index === replies.length - 1 ? lastReplyRef : undefined}
-                className={`reply${index === replies.length - 1 ? " final" : ""}`}
-              >
-                <Markdown>{item.text ?? ""}</Markdown>
-                {item.textTruncated && <div className="muted small">… (truncated, open T3 for the rest)</div>}
-              </div>
-            ))}
-            {isWorking(selected!.status) && (
-              <div className="working">
-                <span className="spinner" /> Working…
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      <div className="composer">
-        <textarea
-          ref={props.inputRef}
-          rows={1}
-          value={props.draft}
-          placeholder={selected ? `Reply to ${selected.title}…` : "Reply…"}
-          disabled={!selected || props.sending}
-          onChange={(e) => props.onDraft(e.target.value)}
-          onKeyDown={onKeyDown}
-        />
-      </div>
-      <div className="hints">
-        {props.sending ? (
-          <span>sending…</span>
-        ) : (
-          <>
-            <span title={MODE_HELP[props.sendMode]}>
-              <span className="key">↵</span> {props.sendMode}
-            </span>
-            <span title={MODE_HELP[props.sendMode === "steer" ? "queue" : "steer"]}>
-              <span className="key">⌃↵</span> {props.sendMode === "steer" ? "queue" : "steer"}
-            </span>
-          </>
-        )}
-        {props.navHotkeys && threads.length > 1 && (
-          <span title="Scrolling over the tabs works too">
-            <span className="key">{shortKey(props.navHotkeys[0])}</span>
-            <span className="key">{shortKey(props.navHotkeys[1])}</span> threads
-          </span>
-        )}
-        {props.voiceHotkey && (
-          <span>
-            hold <span className="key">{shortKey(props.voiceHotkey)}</span> talk
-          </span>
-        )}
-        <UpdateControl version={props.update.version} status={props.update.status} />
-      </div>
-      {props.sendError && <div className="send-error">{props.sendError}</div>}
-      {game.dead && (
-        <div className="bar">
-          <i style={{ width: `${Math.min(100, progress * 100)}%` }} />
-        </div>
-      )}
+      <Conversation
+        {...props}
+        thread={selected}
+        threadCount={threads.length}
+        footer={
+          game.dead && (
+            <div className="bar">
+              <i style={{ width: `${Math.min(100, progress * 100)}%` }} />
+            </div>
+          )
+        }
+      />
     </div>
     </>
   );
