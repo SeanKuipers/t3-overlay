@@ -12,6 +12,17 @@ export interface Config {
   tickerOutsideGame: boolean;
   recentHours: number;
   pollSeconds: number;
+  autoUpdate: boolean;
+}
+
+export type UpdateStatus =
+  | { phase: "idle" | "checking" | "upToDate" }
+  | { phase: "downloading" | "ready" | "installing"; version: string }
+  | { phase: "error"; message: string };
+
+export interface UpdateNotice {
+  version: string;
+  notes: string;
 }
 
 export interface ConnectionStatus {
@@ -60,6 +71,10 @@ export const native = {
   openSettings: () => invoke<void>("open_settings"),
   hexStatus: () => invoke<string>("hex_status"),
   voiceCancel: () => invoke<void>("voice_cancel"),
+  setOverlayBusy: (busy: boolean) => invoke<void>("set_overlay_busy", { busy }),
+  updateStatus: () => invoke<UpdateStatus>("update_status"),
+  updateCheck: () => invoke<void>("update_check"),
+  takeUpdateNotice: () => invoke<UpdateNotice | null>("take_update_notice"),
 };
 
 export function on<T>(event: string, handler: (payload: T) => void): () => void {

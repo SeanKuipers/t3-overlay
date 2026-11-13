@@ -24,6 +24,8 @@ pub struct Config {
     pub recent_hours: u32,
     /// How often T3 is polled, in seconds.
     pub poll_seconds: u32,
+    /// Install new releases automatically when the overlay isn't in use.
+    pub auto_update: bool,
 }
 
 impl Default for Config {
@@ -38,6 +40,7 @@ impl Default for Config {
             ticker_outside_game: false,
             recent_hours: 12,
             poll_seconds: 4,
+            auto_update: true,
         }
     }
 }

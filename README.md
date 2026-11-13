@@ -19,13 +19,15 @@ Windows only for now. MIT licensed.
 
 ## Install
 
-**Download:** grab the latest installer from [Releases](../../releases). To get the newest build of `main`, open the latest [Build run](../../actions/workflows/build.yml) and download the `t3-overlay-windows` artifact.
+**Download:** grab `T3.Overlay_<version>_x64-setup.exe` from the [latest release](../../releases/latest). You only do this once: after that the overlay keeps itself up to date (see [Updates](#updates)).
 
 **Build it yourself** on Windows:
 
 1. Double-click `scripts\setup.cmd`. It installs the Visual Studio C++ Build Tools, Rust and Node.js using winget. You only need to do this once.
 2. Open a new terminal (or log out and back in), then double-click `scripts\build.cmd`.
 3. The installer ends up in `src-tauri\target\release\bundle\nsis\`. The script offers to run it for you.
+
+A self-built copy also updates itself to the latest release.
 
 ## Setup
 
@@ -46,6 +48,12 @@ The overlay keeps running in the system tray. Right-click the tray icon to open 
 | In the inbox | `Enter` / `Shift+Enter` / `Tab` / `Esc` | Send / new line / next thread / close |
 
 All hotkeys can be changed in Settings. After you send a message, focus goes straight back to League.
+
+## Updates
+
+Every push to `main` publishes a signed release. The overlay checks for a new one every 5 minutes, downloads it in the background, and installs it silently as soon as you're not using it: inbox closed, not dictating. That works mid-game too. The overlay disappears for a few seconds, comes back on its own without taking focus from League, and briefly shows what changed.
+
+Turn this off, or check right away, under **Settings → Updates**. Updates are signed, and the overlay refuses any installer that isn't signed with the project's key.
 
 ## How it works
 

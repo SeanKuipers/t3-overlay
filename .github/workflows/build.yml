@@ -1,14 +1,24 @@
 name: Build
 
+# Every push to main publishes a signed release (v0.1.<run number>). Installed overlays pick
+# it up through the updater and install it automatically. Pull requests only build.
+
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  # Never cancel a release halfway through publishing.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  RELEASE: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
 
 jobs:
   windows:
@@ -34,7 +44,39 @@ jobs:
         working-directory: src-tauri
         run: cargo test --locked
 
+      - name: Set release version
+        if: env.RELEASE == 'true'
+        shell: bash
+        run: node scripts/set-release-version.mjs "0.1.${{ github.run_number }}"
+
+      # Built as a draft first so the "latest" release always has a complete latest.json.
+      - name: Build and sign release
+        id: tauri
+        if: env.RELEASE == 'true'
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tauriScript: npm run tauri
+          tagName: v__VERSION__
+          releaseName: T3 Overlay v__VERSION__
+          releaseBody: ${{ github.event.head_commit.message }}
+          releaseDraft: true
+          prerelease: false
+          uploadUpdaterJson: true
+          updaterJsonPreferNsis: true
+
+      - name: Publish release
+        if: env.RELEASE == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "v${{ steps.tauri.outputs.appVersion }}" --draft=false --latest
+
       - name: Build installer
+        if: env.RELEASE != 'true'
         run: npm run tauri build
 
       - uses: actions/upload-artifact@v4
@@ -44,12 +86,3 @@ jobs:
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/t3-overlay.exe
-
-      - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/msi/*.msi
-          generate_release_notes: true

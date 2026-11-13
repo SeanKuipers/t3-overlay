@@ -1,6 +1,7 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { getVersion } from "@tauri-apps/api/app";
 import { useEffect, useState } from "react";
-import { errorMessage, native, on, type Config, type ConnectionStatus } from "../lib/native";
+import { errorMessage, native, on, type Config, type ConnectionStatus, type UpdateStatus } from "../lib/native";
 
 const MODIFIERS: Record<string, string> = { Control: "Ctrl", Shift: "Shift", Alt: "Alt", Meta: "Super" };
 
@@ -49,11 +50,20 @@ export function Settings() {
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [hex, setHex] = useState<string | null>(null);
+  const [version, setVersion] = useState<string | null>(null);
+  const [update, setUpdate] = useState<UpdateStatus>({ phase: "idle" });
 
   useEffect(() => {
     native.getConfig().then(setConfig);
     native.t3Status().then(setStatus);
-    return on<ConnectionStatus>("t3://connection", setStatus);
+    getVersion().then(setVersion);
+    native.updateStatus().then(setUpdate);
+    const offUpdate = on<UpdateStatus>("update://status", setUpdate);
+    const offConnection = on<ConnectionStatus>("t3://connection", setStatus);
+    return () => {
+      offUpdate();
+      offConnection();
+    };
   }, []);
 
   if (!config) return <div className="settings">Loading…</div>;
@@ -210,6 +220,24 @@ export function Settings() {
         </div>
       </section>
 
+      <section>
+        <h2>Updates</h2>
+        <label className="check">
+          <input type="checkbox" checked={config.autoUpdate} onChange={(e) => set("autoUpdate", e.target.checked)} />
+          Install updates automatically
+        </label>
+        <p className="hint">
+          Checks GitHub every 5 minutes. Updates install silently while the inbox is closed, even mid-game; the overlay
+          is gone for a few seconds while it restarts.
+        </p>
+        <div className="row">
+          <button onClick={() => native.updateCheck()} disabled={["checking", "downloading", "installing"].includes(update.phase)}>
+            Check now
+          </button>
+          <span className={`status ${update.phase === "error" ? "err" : "ok"}`}>{updateText(update, version)}</span>
+        </div>
+      </section>
+
       <div className="row footer">
         <button className="primary" disabled={busy === "save"} onClick={save}>
           Save
@@ -222,4 +250,24 @@ export function Settings() {
       </p>
     </div>
   );
+}
+
+function updateText(update: UpdateStatus, version: string | null): string {
+  const current = version ? `v${version}` : "";
+  switch (update.phase) {
+    case "idle":
+      return current;
+    case "checking":
+      return "Checking…";
+    case "upToDate":
+      return `${current} is the latest version.`;
+    case "downloading":
+      return `Downloading v${update.version}…`;
+    case "ready":
+      return `v${update.version} will install once the inbox is closed.`;
+    case "installing":
+      return `Installing v${update.version}…`;
+    case "error":
+      return `Update check failed: ${update.message}`;
+  }
 }

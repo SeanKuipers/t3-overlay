@@ -53,8 +53,15 @@ pub fn place_and_show(app: &AppHandle) {
     }
     let _ = window.set_ignore_cursor_events(true);
     let _ = window.set_always_on_top(true);
+    // Showing can activate the window. Mid-game (e.g. right after an update restart) that
+    // would steal keyboard focus from League, so hand it straight back.
+    let before = platform::foreground();
     let _ = window.show();
     platform::make_non_activating(&window);
+    platform::keep_on_top(&window);
+    if before.is_some() && platform::foreground() == platform::hwnd(&window) {
+        platform::restore_focus(before);
+    }
 }
 
 /// Toggles click-through depending on whether the cursor is over an interactive region, and

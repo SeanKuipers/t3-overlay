@@ -4,7 +4,7 @@ import { useGame } from "../lib/useGame";
 import { useHitRegions } from "../lib/useHitRegions";
 import { useT3 } from "../lib/useT3";
 import { Inbox } from "./Inbox";
-import { Notices } from "./Notices";
+import { Notices, type NoticeView } from "./Notices";
 import { Ticker } from "./Ticker";
 import { VoiceHud, type VoiceView } from "./VoiceHud";
 
@@ -194,6 +194,24 @@ export function Overlay() {
     [sendTo],
   );
 
+  // Updates install only while the overlay isn't in use.
+  const busy = visible || !!voice || sending;
+  useEffect(() => {
+    native.setOverlayBusy(busy);
+  }, [busy]);
+
+  // After an update restart, say so briefly.
+  const [updateNotice, setUpdateNotice] = useState<NoticeView | null>(null);
+  useEffect(() => {
+    native.takeUpdateNotice().then((n) => {
+      if (!n) return;
+      const firstLine = n.notes.split("\n").find((l) => l.trim()) ?? "";
+      setUpdateNotice({ id: "update", title: `T3 Overlay updated to v${n.version}`, text: firstLine });
+      window.setTimeout(() => setUpdateNotice(null), 8000);
+    });
+  }, []);
+  const notices: NoticeView[] = updateNotice ? [updateNotice, ...t3.notices] : t3.notices;
+
   const showTicker = !visible && (game.inGame || !!config?.tickerOutsideGame);
 
   useHitRegions([visible, t3.threads.length, selectedId, sending]);
@@ -203,7 +221,7 @@ export function Overlay() {
   return (
     <div className="overlay-root">
       {showTicker && <Ticker threads={t3.threads} connected={!!t3.status?.connected} />}
-      {!visible && <Notices notices={t3.notices} />}
+      {!visible && <Notices notices={notices} />}
       {visible && (
         <Inbox
           threads={t3.threads}

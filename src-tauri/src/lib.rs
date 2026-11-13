@@ -3,6 +3,7 @@ mod game;
 mod hex;
 mod overlay;
 mod t3;
+mod update;
 
 use serde::Serialize;
 use serde_json::Value;
@@ -64,6 +65,7 @@ fn save_config(app: AppHandle, state: State<'_, AppState>, mut config: Config) -
     config.recent_hours = config.recent_hours.clamp(1, 24 * 14);
     register_hotkeys(&app, &config)?;
     config::save_config(&app, &config).map_err(|e| e.to_string())?;
+    app.state::<update::Updates>().auto.store(config.auto_update, Ordering::SeqCst);
     *state.config.lock().unwrap() = config.clone();
     let _ = app.emit("config://changed", &config);
     Ok(config)
@@ -158,6 +160,27 @@ fn overlay_release(app: AppHandle) {
 #[tauri::command]
 fn open_settings(app: AppHandle) -> Result<(), String> {
     show_settings(&app).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn set_overlay_busy(updates: State<'_, update::Updates>, busy: bool) {
+    updates.overlay_busy.store(busy, Ordering::SeqCst);
+}
+
+#[tauri::command]
+fn update_status(updates: State<'_, update::Updates>) -> update::Status {
+    updates.status()
+}
+
+#[tauri::command]
+fn update_check(updates: State<'_, update::Updates>) {
+    updates.check_now();
+}
+
+/// The version we just updated to (once per update), for the "updated" notice.
+#[tauri::command]
+fn take_update_notice(updates: State<'_, update::Updates>) -> Option<update::Installed> {
+    updates.take_installed()
 }
 
 #[tauri::command]
@@ -305,6 +328,7 @@ pub fn run() {
             let _ = show_settings(app);
         }))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
@@ -330,6 +354,7 @@ pub fn run() {
                 hotkeys: Mutex::new(Hotkeys::default()),
                 recording: AtomicBool::new(false),
             });
+            app.manage(update::Updates::new(config.auto_update, &handle));
             if let Err(e) = register_hotkeys(&handle, &config) {
                 log::warn!("{e}");
             }
@@ -337,6 +362,7 @@ pub fn run() {
             overlay::place_and_show(&handle);
             overlay::spawn_hit_test_loop(handle.clone());
             game::spawn_watcher(handle.clone());
+            update::spawn(handle.clone());
             if needs_setup {
                 let _ = show_settings(&handle);
             }
@@ -355,6 +381,10 @@ pub fn run() {
             open_settings,
             hex_status,
             voice_cancel,
+            set_overlay_busy,
+            update_status,
+            update_check,
+            take_update_notice,
         ])
         .run(tauri::generate_context!())
         .expect("error while running T3 Overlay");

@@ -34,7 +34,7 @@ export async function installMock(scenario: string) {
       const args = payload as Record<string, any>;
       switch (cmd) {
         case "get_config":
-          return { serverUrl: "http://100.88.0.1:3773", hotkeyInbox: "Ctrl+Shift+Space", hotkeyVoice: "Ctrl+Shift+V", voiceEnabled: true, openOnDeath: true, openOnGameEnd: true, tickerOutsideGame: true, recentHours: 12, pollSeconds: 4 };
+          return { serverUrl: "http://100.88.0.1:3773", hotkeyInbox: "Ctrl+Shift+Space", hotkeyVoice: "Ctrl+Shift+V", voiceEnabled: true, openOnDeath: true, openOnGameEnd: true, tickerOutsideGame: true, recentHours: 12, pollSeconds: 4, autoUpdate: true };
         case "t3_status":
           return { serverUrl: "http://100.88.0.1:3773", connected: true, expiresAtMs: now + 29 * 86_400_000 };
         case "t3_call": {
@@ -50,6 +50,12 @@ export async function installMock(scenario: string) {
         }
         case "hex_status":
           return "idle";
+        case "plugin:app|version":
+          return "0.1.12";
+        case "update_status":
+          return { phase: "upToDate" };
+        case "take_update_notice":
+          return scenario === "alive" ? { version: "0.1.12", notes: "Keep the overlay above the game" } : null;
         default:
           return null;
       }

@@ -34,7 +34,10 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi"],
+    "targets": [
+      "nsis",
+      "msi"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -45,7 +48,20 @@
     "shortDescription": "T3 Code in-game overlay",
     "longDescription": "Read and reply to your T3 Code agents while you play League of Legends.",
     "windows": {
-      "webviewInstallMode": { "type": "downloadBootstrapper" }
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDA3OURCN0I1MzBFMDlFQTkKUldTcG51QXd0YmVkQjg5Ujl3VXVZWk4xRXp3Y29YazNQNWFoajloVDZaOFJ4L0NWczlYcW9HV3IK",
+      "endpoints": [
+        "https://github.com/SeanKuipers/t3-overlay/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "quiet"
+      }
     }
   }
 }

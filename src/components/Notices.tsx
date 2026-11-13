@@ -1,7 +1,11 @@
-import type { Notice } from "../lib/useT3";
+export interface NoticeView {
+  id: number | string;
+  title: string;
+  text: string;
+}
 
-/** Short pop-ups when an agent finishes. They fade on their own. */
-export function Notices({ notices }: { notices: Notice[] }) {
+/** Short pop-ups (an agent finished, the overlay updated). They fade on their own. */
+export function Notices({ notices }: { notices: NoticeView[] }) {
   if (notices.length === 0) return null;
   return (
     <div className="notices">
