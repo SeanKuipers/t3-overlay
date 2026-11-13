@@ -26,16 +26,16 @@ function storedWidth() {
 }
 
 /** A stable colour per project, for the row avatars. */
-function hue(id: string) {
+function hue(id: string | undefined) {
   let h = 0;
-  for (const c of id) h = (h * 31 + c.charCodeAt(0)) % 360;
+  for (const c of id ?? "") h = (h * 31 + c.charCodeAt(0)) % 360;
   return h;
 }
 
 function Avatar({ thread }: { thread: ThreadView }) {
   const initial = (thread.projectTitle || thread.title || "?").trim().charAt(0).toUpperCase();
   return (
-    <span className="avatar" style={{ background: `hsl(${hue(thread.projectId)} 45% 32%)` }}>
+    <span className="avatar" style={{ background: `hsl(${hue(thread.projectId || thread.title)} 45% 32%)` }}>
       {initial}
       {isWorking(thread.status) && thread.questions.length === 0 && <span className="avatar-ring" />}
       {thread.questions.length > 0 && <span className="avatar-ask">?</span>}

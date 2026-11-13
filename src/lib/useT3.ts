@@ -136,7 +136,9 @@ export function useT3(pollSeconds: number, recentHours: number) {
                 setTimeout(() => setNotices((n) => n.filter((x) => x.id !== noticeKey)), 12000);
               }
             }
-            v.questions = ids.map((id) => requests.current.get(id)!).filter(Boolean);
+            v.questions = ids
+              .map((id) => requests.current.get(id))
+              .filter((r): r is PendingRequest => !!r && r.questions.length > 0);
           } catch {
             // Older server without questions.
           }

@@ -132,7 +132,8 @@ export async function listRecentThreads(hours: number, max = 6): Promise<Thread[
         allProjects: true,
         limit: 50,
       });
-      if (result.projectId === null) {
+      // Only usable if every item says which project it's in; otherwise list per project.
+      if (result.projectId === null && (result.threads ?? []).every((t) => typeof t.projectId === "string")) {
         allProjectsSupported = true;
         threads = result.threads;
       } else {
@@ -147,7 +148,8 @@ export async function listRecentThreads(hours: number, max = 6): Promise<Thread[
       projects.map((p) =>
         native
           .t3Call<ThreadListResult>("t3_thread_list", { projectId: p.id, limit: 15 })
-          .then((r) => r.threads)
+          // List items don't carry their project id; the per-project result does.
+          .then((r) => (r.threads ?? []).map((t) => ({ ...t, projectId: t.projectId ?? p.id })))
           .catch(() => [] as ThreadListItem[]),
       ),
     );
@@ -180,7 +182,7 @@ export async function readConversation(thread: Thread): Promise<Conversation> {
       runLimit: 1,
       ...(afterPosition === undefined ? {} : { afterPosition }),
     });
-    items.push(...result.items);
+    items.push(...(result.items ?? []));
     const run = result.recentRuns?.[0];
     if (page === 0 && run) runStartedAt = run.startedAt ?? run.requestedAt;
     if (!result.hasMore || result.nextPosition === null || afterPosition === undefined) break;
@@ -225,8 +227,13 @@ export async function listPendingIds(threadId: string): Promise<string[]> {
   return result?.requestIds ?? [];
 }
 
-export function readPending(threadId: string, requestId: string) {
-  return native.t3Call<PendingRequest>("t3_pending_request", { action: "read", threadId, requestId });
+export async function readPending(threadId: string, requestId: string): Promise<PendingRequest> {
+  const r = await native.t3Call<Partial<PendingRequest>>("t3_pending_request", { action: "read", threadId, requestId });
+  // Defensive: never let an unexpected shape take the overlay down.
+  return {
+    requestId: r?.requestId ?? requestId,
+    questions: (r?.questions ?? []).map((q) => ({ ...q, options: q.options ?? [] })),
+  };
 }
 
 /** `answers`: question id → option value(s) or your own text, the way T3's UI sends them. */
