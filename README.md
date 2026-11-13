@@ -52,6 +52,7 @@ The overlay keeps running in the system tray. Right-click the tray icon to open 
 | Switch threads | `Ctrl+Shift+Q` / `Ctrl+Shift+E` | Previous / next thread. Only active while the inbox is open, so League keeps these keys otherwise. Scrolling the mouse wheel over the tabs does the same. |
 | In the inbox | `Enter` / `Ctrl+Enter` | **Queue**: runs as the agent's next turn. **Steer**: joins the turn it's working on right now. Swap them in Settings → Sending. |
 | | `Shift+Enter` / `Tab` / `Esc` | New line / next thread / close |
+| | Hold `Ctrl` | The send button previews the other mode, like T3: ↱ steer or ≡+ queue. Queued messages are listed above the reply box, each with **Steer** (send it into the running turn now) and **×** (drop it). |
 
 All hotkeys can be changed in Settings. After you send a message, typed or spoken, the inbox closes and focus goes straight back to League.
 
@@ -74,7 +75,7 @@ To update right now, even mid-game: open the inbox and click the version in its 
 └───────────────────┘   └──────────────────────────────────┘        └──────────────────┘
 ```
 
-- **T3 Code:** the overlay is an ordinary MCP client of T3 Code's built-in `/mcp` endpoint. It signs in with OAuth 2.1 using PKCE and a loopback redirect, and you approve it on T3's own page. It only calls four tools: `t3_project_list`, `t3_thread_list`, `t3_thread_read` and `t3_thread_send`. The credential is valid for 30 days and stays on your PC, in `%APPDATA%\io.github.seankuipers.t3overlay\auth.json`.
+- **T3 Code:** the overlay is an ordinary MCP client of T3 Code's built-in `/mcp` endpoint. It signs in with OAuth 2.1 using PKCE and a loopback redirect, and you approve it on T3's own page. It only calls five tools: `t3_project_list`, `t3_thread_list`, `t3_thread_read`, `t3_thread_send` and `t3_queue` (to list, steer or drop queued messages). The credential is valid for 30 days and stays on your PC, in `%APPDATA%\io.github.seankuipers.t3overlay\auth.json`.
 - **Game state:** read from Riot's official [Live Client Data API](https://developer.riotgames.com/docs/lol#game-client-api) on `127.0.0.1:2999`, which the game itself provides. The overlay never reads game memory, injects anything, or sends input to the game.
 - **Overlay window:** a transparent, always-on-top window. Mouse clicks pass through to the game everywhere except on the inbox card. It only takes keyboard focus when you press the hotkey or click the card, and gives focus back to League afterwards.
 - **Voice:** the overlay calls Hex's local control API. It sends `dictation start` when you press the key, and `dictation stop` with `print: true` when you let go. With `print`, Hex returns the transcript in its response and doesn't paste anything or touch the clipboard, so dictated text can't end up in League chat. Hex still plays its start and stop sounds, and your normal Hex shortcut keeps working outside the game.

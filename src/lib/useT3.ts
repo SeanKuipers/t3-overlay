@@ -1,17 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { errorMessage, isT3Error, native, on, type ConnectionStatus, type SendMode } from "./native";
 import {
+  cancelQueued,
   isWorking,
+  listQueue,
   listRecentThreads,
   readConversation,
   sendMessage,
+  steerQueued,
   type Conversation,
+  type QueuedMessage,
   type Thread,
 } from "./t3";
 
 export interface ThreadView extends Thread {
   conversation: Conversation | null;
   unread: boolean;
+  /** Messages queued behind the running turn (only while the agent works). */
+  queue: QueuedMessage[];
 }
 
 export interface Notice {
@@ -48,6 +54,7 @@ export function useT3(pollSeconds: number, recentHours: number) {
   const firstRun = useRef(Object.keys(seen.current).length === 0);
   const cache = useRef(new Map<string, { updatedAt: string; conversation: Conversation }>());
   const lastStatus = useRef(new Map<string, string>());
+  const queues = useRef(new Map<string, QueuedMessage[]>());
   const noticeId = useRef(0);
 
   useEffect(() => {
@@ -91,8 +98,23 @@ export function useT3(pollSeconds: number, recentHours: number) {
           setTimeout(() => setNotices((n) => n.filter((x) => x.id !== id)), 7000);
         }
         lastStatus.current.set(thread.threadId, thread.status);
-        views.push({ ...thread, conversation, unread });
+        views.push({ ...thread, conversation, unread, queue: [] });
       }
+      // Queues only exist while a turn runs.
+      await Promise.all(
+        views.map(async (v) => {
+          if (!isWorking(v.status)) {
+            queues.current.delete(v.threadId);
+            return;
+          }
+          try {
+            queues.current.set(v.threadId, await listQueue(v.threadId));
+          } catch {
+            // Older server, or a hiccup: keep what we had.
+          }
+          v.queue = queues.current.get(v.threadId) ?? [];
+        }),
+      );
       persistSeen();
       setThreads(views);
       setError(null);
@@ -134,9 +156,15 @@ export function useT3(pollSeconds: number, recentHours: number) {
   const send = useCallback(
     async (threadId: string, text: string, mode: SendMode) => {
       const result = await sendMessage(threadId, text, mode);
-      // Show it as working right away; the next poll fills in the details.
+      // Show it right away (working, and queued if it was); the next poll fills in the rest.
+      const queued: QueuedMessage | null =
+        result?.delivery === "queued" && result.runId ? { queuedRunId: result.runId, text, truncated: false } : null;
       setThreads((list) =>
-        list.map((t) => (t.threadId === threadId ? { ...t, status: "running", unread: false } : t)),
+        list.map((t) =>
+          t.threadId === threadId
+            ? { ...t, status: "running", unread: false, queue: queued ? [...t.queue, queued] : t.queue }
+            : t,
+        ),
       );
       lastStatus.current.set(threadId, "running");
       window.setTimeout(refresh, 800);
@@ -145,9 +173,30 @@ export function useT3(pollSeconds: number, recentHours: number) {
     [refresh],
   );
 
+  const updateQueue = (threadId: string, change: (q: QueuedMessage[]) => QueuedMessage[]) =>
+    setThreads((list) => list.map((t) => (t.threadId === threadId ? { ...t, queue: change(t.queue) } : t)));
+
+  /** T3's "Steer" on a queued message: send it into the running turn now. */
+  const steer = useCallback(
+    async (threadId: string, queuedRunId: string) => {
+      await steerQueued(threadId, queuedRunId);
+      updateQueue(threadId, (q) => q.filter((m) => m.queuedRunId !== queuedRunId));
+      window.setTimeout(refresh, 800);
+    },
+    [refresh],
+  );
+
+  const unqueue = useCallback(
+    async (threadId: string, queuedRunId: string) => {
+      await cancelQueued(threadId, queuedRunId);
+      updateQueue(threadId, (q) => q.filter((m) => m.queuedRunId !== queuedRunId));
+    },
+    [],
+  );
+
   const dismissNotice = useCallback((id: number | string) => {
     setNotices((n) => n.filter((x) => x.id !== id));
   }, []);
 
-  return { status, threads, error, notices, markRead, send, refresh, dismissNotice };
+  return { status, threads, error, notices, markRead, send, refresh, dismissNotice, steer, unqueue };
 }

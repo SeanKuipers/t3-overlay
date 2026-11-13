@@ -46,6 +46,10 @@ export async function installMock(scenario: string) {
           }
           if (args.tool === "t3_thread_read") return { items: reads[a.threadId] ?? [], nextPosition: null, hasMore: false };
           if (args.tool === "t3_thread_send") return { delivery: "started", status: "running" };
+          if (args.tool === "t3_queue")
+            return a.action === "list" && a.threadId === "t2"
+              ? { items: [{ queuedRunId: "q1", text: "after that, also add a reset-to-defaults button", truncated: false }], nextCursor: null }
+              : { items: [], nextCursor: null };
           return null;
         }
         case "game_state":
@@ -65,9 +69,12 @@ export async function installMock(scenario: string) {
     { shouldMockEvents: true },
   );
   // Make t1 count as a fresh, unread reply.
-  localStorage.setItem("t3-overlay:seen", JSON.stringify({ t3: "a3@" + iso(200) }));
+  localStorage.setItem(
+    "t3-overlay:seen",
+    JSON.stringify(scenario === "hubrun" ? { t1: "a1@" + iso(1), t3: "a3@" + iso(200) } : { t3: "a3@" + iso(200) }),
+  );
   const game =
-    scenario === "hub" || scenario === "hubchat"
+    scenario === "hub" || scenario === "hubchat" || scenario === "hubrun"
       ? { inGame: false, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 0, clientOpen: true }
       : scenario === "dead"
       ? { inGame: true, dead: true, respawnSeconds: 23, gameEnded: false, gameTime: 1085 }
@@ -78,6 +85,6 @@ export async function installMock(scenario: string) {
     emit("game://state", { ...game, respawnSeconds: game.dead ? 32 : 0 });
     setTimeout(() => emit("game://state", game), 50);
     if (scenario === "voice") emit("voice://state", { phase: "recording" });
-    if (scenario === "hubchat") setTimeout(() => emit("hotkey://inbox", null), 400);
+    if (scenario === "hubchat" || scenario === "hubrun") setTimeout(() => emit("hotkey://inbox", null), 400);
   }, 300);
 }

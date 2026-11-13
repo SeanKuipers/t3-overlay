@@ -51,6 +51,7 @@ export interface TimelineItem {
 }
 
 interface ThreadReadResult {
+  thread?: { activeRunId: string | null };
   items: TimelineItem[];
   nextPosition: number | null;
   hasMore: boolean;
@@ -67,6 +68,13 @@ export interface Conversation {
   replies: TimelineItem[];
   /** Identifies the newest reply, for unread tracking. */
   replyKey: string | null;
+}
+
+/** A message waiting to run as the thread's next turn. */
+export interface QueuedMessage {
+  queuedRunId: string;
+  text: string;
+  truncated: boolean;
 }
 
 export const WORKING: ReadonlySet<ThreadStatus> = new Set([
@@ -170,8 +178,26 @@ export async function readConversation(thread: Thread): Promise<Conversation> {
   return { prompt, replies, replyKey: last ? `${last.itemId}@${last.updatedAt}` : null };
 }
 
+/** Messages queued behind the running turn, in send order. Empty on servers without queues. */
+export async function listQueue(threadId: string): Promise<QueuedMessage[]> {
+  const result = await native.t3Call<{ items: QueuedMessage[] }>("t3_queue", { action: "list", threadId, limit: 10 });
+  return result?.items ?? [];
+}
+
+export function cancelQueued(threadId: string, queuedRunId: string) {
+  return native.t3Call("t3_queue", { action: "cancel", threadId, queuedRunId });
+}
+
+/** Sends a queued message into the running turn now, like T3's "Steer" button. */
+export async function steerQueued(threadId: string, queuedRunId: string) {
+  const read = await native.t3Call<ThreadReadResult>("t3_thread_read", { threadId, view: "messages", limit: 1, runLimit: 1 });
+  const targetRunId = read.thread?.activeRunId;
+  if (!targetRunId) throw new Error("The agent isn't working any more; the message will run next.");
+  return native.t3Call("t3_queue", { action: "promote_to_steer", threadId, queuedRunId, targetRunId });
+}
+
 export async function sendMessage(threadId: string, message: string, mode: SendMode) {
-  return native.t3Call<{ delivery: string; status: string }>("t3_thread_send", {
+  return native.t3Call<{ delivery: string; status: string; runId?: string }>("t3_thread_send", {
     threadId,
     message,
     mode,

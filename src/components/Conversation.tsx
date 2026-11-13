@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode, type RefObject } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import Markdown from "react-markdown";
 import type { SendMode, UpdateStatus } from "../lib/native";
 import { isWorking } from "../lib/t3";
@@ -24,13 +24,65 @@ export interface ConversationProps {
   onSubmit: (alternate: boolean) => void;
   onClose: () => void;
   onCycle: (step: number) => void;
+  /** T3's queued-message actions: send it into the running turn now, or drop it. */
+  onSteerQueued: (queuedRunId: string) => void;
+  onUnqueue: (queuedRunId: string) => void;
   /** Shown under the reply box, e.g. the respawn bar. */
   footer?: ReactNode;
+}
+
+// Icons as T3's composer uses them (lucide): send ↑, steer ↱, queue ≡+.
+const ArrowUp = () => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+    <path d="M7 11.5V2.5M7 2.5L3 6.5M7 2.5L11 6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+const lucide = { width: 15, height: 15, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
+export const SteerIcon = () => (
+  <svg {...lucide}>
+    <polyline points="15 14 20 9 15 4" />
+    <path d="M4 20v-7a4 4 0 0 1 4-4h12" />
+  </svg>
+);
+export const QueueIcon = () => (
+  <svg {...lucide}>
+    <path d="M11 12H3" />
+    <path d="M16 6H3" />
+    <path d="M16 18H3" />
+    <path d="M18 9v6" />
+    <path d="M21 12h-6" />
+  </svg>
+);
+
+/**
+ * What Enter does right now, the way T3 decides it: an idle agent just starts; a working one
+ * gets your default (queue or steer), and holding Ctrl flips it to the other.
+ */
+function effectiveMode(running: boolean, base: SendMode, alternate: boolean): "send" | "queue" | "steer" {
+  if (!running) return "send";
+  const primary = base === "queue" ? "queue" : "steer";
+  return alternate ? (primary === "queue" ? "steer" : "queue") : primary;
 }
 
 /** A thread's last exchange plus the reply box. Used by the in-game inbox and the hub. */
 export function Conversation(props: ConversationProps) {
   const { thread } = props;
+  const running = !!thread && isWorking(thread.status);
+  const queue = thread?.queue ?? [];
+  // Holding Ctrl previews the alternate mode on the send button, like T3.
+  const [ctrl, setCtrl] = useState(false);
+  useEffect(() => {
+    const up = (e: KeyboardEvent) => !e.ctrlKey && !e.metaKey && setCtrl(false);
+    const reset = () => setCtrl(false);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", reset);
+    return () => {
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", reset);
+    };
+  }, []);
+  const mode = effectiveMode(running, props.sendMode, ctrl);
+  const altMode = effectiveMode(running, props.sendMode, !ctrl);
   const bodyRef = useRef<HTMLDivElement>(null);
   const lastReplyRef = useRef<HTMLDivElement>(null);
   const conversation = thread?.conversation;
@@ -46,6 +98,7 @@ export function Conversation(props: ConversationProps) {
   }, [thread?.threadId, replyKey]);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Control" || e.key === "Meta") setCtrl(true);
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       props.onSubmit(e.ctrlKey || e.metaKey);
@@ -58,7 +111,6 @@ export function Conversation(props: ConversationProps) {
     }
   };
 
-  const other: SendMode = props.sendMode === "steer" ? "queue" : "steer";
 
   return (
     <>
@@ -93,29 +145,64 @@ export function Conversation(props: ConversationProps) {
         )}
       </div>
 
+      {queue.length > 0 && (
+        <div className="queued" aria-label="Queued messages">
+          {queue.map((q) => (
+            <div key={q.queuedRunId} className="queued-row">
+              <span className="queued-icon" title="Queued: runs after the current turn">
+                <QueueIcon />
+              </span>
+              <span className="queued-text" title={q.text}>
+                {q.text}
+              </span>
+              <button className="queued-btn" onClick={() => props.onSteerQueued(q.queuedRunId)} title="Send as a steer instead">
+                <SteerIcon /> Steer
+              </button>
+              <button className="queued-x" onClick={() => props.onUnqueue(q.queuedRunId)} title="Remove queued message" aria-label="Remove queued message">
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="composer">
         <textarea
           ref={props.inputRef}
           rows={1}
           value={props.draft}
-          placeholder={thread ? `Reply to ${thread.title}…` : "Reply…"}
+          placeholder={thread ? (running ? `${mode === "queue" ? "Queue" : "Steer"} a message for ${thread.title}…` : `Reply to ${thread.title}…`) : "Reply…"}
           disabled={!thread || props.sending}
           onChange={(e) => props.onDraft(e.target.value)}
           onKeyDown={onKeyDown}
+          onKeyUp={(e) => !e.ctrlKey && !e.metaKey && setCtrl(false)}
         />
+        <button
+          className={`send-btn ${mode}`}
+          disabled={!thread || props.sending || !props.draft.trim()}
+          onClick={(e) => props.onSubmit(e.ctrlKey || e.metaKey)}
+          title={running ? `Click to ${mode}, Ctrl-click to ${altMode}` : "Send"}
+          aria-label={mode === "queue" ? "Queue message" : mode === "steer" ? "Steer message" : "Send message"}
+        >
+          {props.sending ? <span className="spinner" /> : mode === "queue" ? <QueueIcon /> : mode === "steer" ? <SteerIcon /> : <ArrowUp />}
+        </button>
       </div>
       <div className="hints">
         {props.sending ? (
           <span>sending…</span>
-        ) : (
+        ) : running ? (
           <>
-            <span title={MODE_HELP[props.sendMode]}>
-              <span className="key">↵</span> {props.sendMode}
+            <span className="mode-hint on" title={MODE_HELP[mode as SendMode]}>
+              <span className="key">↵</span> {mode}
             </span>
-            <span title={MODE_HELP[other]}>
-              <span className="key">⌃↵</span> {other}
+            <span className="mode-hint" title={MODE_HELP[altMode as SendMode]}>
+              <span className="key">⌃↵</span> {altMode}
             </span>
           </>
+        ) : (
+          <span>
+            <span className="key">↵</span> send
+          </span>
         )}
         {props.navHotkeys && props.threadCount > 1 && (
           <span title="Scrolling over the tabs works too">

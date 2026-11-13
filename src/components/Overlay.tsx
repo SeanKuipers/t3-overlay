@@ -306,6 +306,15 @@ export function Overlay() {
 
   const draft = selected ? drafts[selected.threadId] ?? "" : "";
 
+  // T3's queued-message actions, on the open thread.
+  const queueAction = (action: (threadId: string, runId: string) => Promise<void>) => (runId: string) => {
+    if (!selected) return;
+    setSendError(null);
+    action(selected.threadId, runId).catch((e) => setSendError(errorMessage(e)));
+  };
+  const onSteerQueued = queueAction(t3.steer);
+  const onUnqueue = queueAction(t3.unqueue);
+
   return (
     <div className="overlay-root">
       {showTicker && (
@@ -340,6 +349,8 @@ export function Overlay() {
           onSubmit={submit}
           onFocusRequest={focusInput}
           onOpenSettings={() => native.openSettings()}
+          onSteerQueued={onSteerQueued}
+          onUnqueue={onUnqueue}
         />
       )}
       {inboxVisible && (
@@ -364,6 +375,8 @@ export function Overlay() {
           onSubmit={submit}
           onClose={close}
           onFocusRequest={focusInput}
+          onSteerQueued={onSteerQueued}
+          onUnqueue={onUnqueue}
         />
       )}
       {voice && <VoiceHud voice={voice} />}

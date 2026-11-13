@@ -454,6 +454,110 @@ button.ticker {
 .hints .key {
   margin-right: 3px;
 }
+.send-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 0;
+  display: grid;
+  place-items: center;
+  background: #e8e8ea;
+  color: #0b0b0f;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    background-color 0.15s ease,
+    opacity 0.15s ease;
+}
+.send-btn:hover:not(:disabled) {
+  transform: scale(1.05);
+}
+.send-btn:disabled {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--muted);
+  cursor: default;
+}
+.send-btn.steer:not(:disabled) {
+  background: var(--run);
+  color: #fff;
+}
+.send-btn.queue:not(:disabled) {
+  background: #e8e8ea;
+  color: #0b0b0f;
+}
+.send-btn svg {
+  pointer-events: none;
+}
+.send-btn .spinner {
+  width: 12px;
+  height: 12px;
+}
+.mode-hint {
+  opacity: 0.6;
+  transition: opacity 0.12s ease;
+}
+.mode-hint.on {
+  opacity: 1;
+  color: #e8e8ea;
+}
+.queued {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 8px 0;
+}
+.queued-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px 5px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 12.5px;
+  animation: drop-in 0.15s ease-out;
+}
+.queued-icon {
+  display: grid;
+  color: var(--muted);
+}
+.queued-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #d8d8de;
+}
+.queued-btn,
+.queued-x {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+.queued-btn svg {
+  width: 13px;
+  height: 13px;
+}
+.queued-btn:hover,
+.queued-x:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.queued-x {
+  font-size: 15px;
+  line-height: 1;
+}
 .composer textarea {
   flex: 1;
   resize: none;

@@ -11,6 +11,8 @@ pub const ALLOWED_TOOLS: &[&str] = &[
     "t3_thread_list",
     "t3_thread_read",
     "t3_thread_send",
+    // Queued messages: list them, steer one now, or drop one (like T3's composer).
+    "t3_queue",
 ];
 
 pub fn check_allowed(tool: &str) -> Result<(), String> {
