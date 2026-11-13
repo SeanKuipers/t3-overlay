@@ -11,7 +11,7 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Webview
 
 pub const LABEL: &str = "overlay";
 
-/// A rectangle in physical pixels, relative to the overlay window.
+/// A rectangle in the page's CSS pixels, relative to the overlay window.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Rect {
     pub x: f64,
@@ -32,7 +32,10 @@ impl Rect {
 #[derive(Default)]
 pub struct OverlayState {
     pub hit_regions: Mutex<Vec<Rect>>,
-    /// The overlay is focusable right now (only while you type in it; see `take_focus`).
+    /// The page's viewport in CSS pixels. Regions are scaled to the window's real size with
+    /// it, rather than trusting devicePixelRatio (which can disagree with the window).
+    pub viewport: Mutex<Option<(f64, f64)>>,
+    /// The overlay has become focusable (shortly after it first appears).
     pub focusable: std::sync::atomic::AtomicBool,
     /// What the overlay page last reported, for Settings → Diagnostics.
     pub diag: Mutex<PageReport>,
@@ -59,6 +62,9 @@ pub struct Diagnostics {
     pub size: Option<(u32, u32)>,
     pub ex_style: Option<String>,
     pub focusable_now: bool,
+    /// Page viewport (CSS px) and the factor from CSS px to window pixels.
+    pub viewport: Option<(f64, f64)>,
+    pub scale: Option<(f64, f64)>,
     pub heartbeat_age_ms: Option<u64>,
     pub errors: Vec<String>,
 }
@@ -70,10 +76,19 @@ pub fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
+/// Window pixels per CSS pixel, from the window's real size and the page's viewport.
+fn scale_of(window: &WebviewWindow, state: &OverlayState) -> Option<(f64, f64)> {
+    let (vw, vh) = (*state.viewport.lock().unwrap())?;
+    let size = window.inner_size().ok()?;
+    (vw > 0.0 && vh > 0.0).then(|| (size.width as f64 / vw, size.height as f64 / vh))
+}
+
 pub fn diagnostics(app: &AppHandle) -> Diagnostics {
     let state = app.state::<OverlayState>();
     let report = state.diag.lock().unwrap().clone();
     let w = window(app);
+    let viewport = *state.viewport.lock().unwrap();
+    let scale = w.as_ref().and_then(|w| scale_of(w, &state));
     Diagnostics {
         window_exists: w.is_some(),
         visible: w.as_ref().and_then(|w| w.is_visible().ok()),
@@ -82,6 +97,8 @@ pub fn diagnostics(app: &AppHandle) -> Diagnostics {
         size: w.as_ref().and_then(|w| w.outer_size().ok()).map(|s| (s.width, s.height)),
         ex_style: w.as_ref().and_then(platform::ex_style).map(|s| format!("{s:#010x}")),
         focusable_now: state.focusable.load(std::sync::atomic::Ordering::SeqCst),
+        viewport,
+        scale,
         heartbeat_age_ms: report.last_heartbeat_ms.map(|t| now_ms().saturating_sub(t)),
         errors: report.errors,
     }
@@ -120,10 +137,10 @@ pub fn place_and_show(app: &AppHandle) {
         let _ = window.set_position(PhysicalPosition::new(pos.x, pos.y));
         let _ = window.set_size(PhysicalSize::new(size.width, size.height));
     }
-    // The window is created non-focusable (`focusable: false` in tauri.conf.json), which
-    // gives it WS_EX_NOACTIVATE for as long as Tauri manages its styles. Tiling window
-    // managers (GlazeWM) skip such windows when they appear, so the overlay is never tiled
-    // or hidden with a workspace. It only becomes focusable while you type (take_focus).
+    // The window is created non-focusable (`focusable: false` in tauri.conf.json): it has
+    // WS_EX_NOACTIVATE at the moment it appears, which is the only moment tiling window
+    // managers (GlazeWM) decide whether to manage a window. So it's never tiled or hidden
+    // with a workspace. A moment later it becomes a normal focusable window, so typing works.
     let _ = window.set_always_on_top(true);
     let _ = window.set_ignore_cursor_events(true);
     platform::make_non_activating(&window);
@@ -135,6 +152,14 @@ pub fn place_and_show(app: &AppHandle) {
     if before.is_some() && platform::foreground() == platform::hwnd(&window) {
         platform::restore_focus(before);
     }
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(1500)).await;
+        if let Some(w) = self::window(&app) {
+            let _ = w.set_focusable(true);
+            app.state::<OverlayState>().focusable.store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+    });
 }
 
 /// Toggles click-through depending on whether the cursor is over an interactive region, and
@@ -162,10 +187,12 @@ pub fn spawn_hit_test_loop(app: AppHandle) {
             }
 
             let state = app.state::<OverlayState>();
-            let (over, hover) = match (window.cursor_position(), window.outer_position()) {
+            let scale = scale_of(&window, &state).unwrap_or((1.0, 1.0));
+            let (over, hover) = match (window.cursor_position(), window.inner_position()) {
                 (Ok(cursor), Ok(origin)) => {
-                    let x = cursor.x - origin.x as f64;
-                    let y = cursor.y - origin.y as f64;
+                    // Cursor in the page's CSS pixels.
+                    let x = (cursor.x - origin.x as f64) / scale.0;
+                    let y = (cursor.y - origin.y as f64) / scale.1;
                     let regions = state.hit_regions.lock().unwrap();
                     let over = regions.iter().any(|r| r.contains(x, y));
                     let hover = regions.iter().find(|r| r.id.is_some() && r.contains(x, y)).and_then(|r| r.id.clone());
@@ -183,13 +210,6 @@ pub fn spawn_hit_test_loop(app: AppHandle) {
             }
             // Out of Alt+Tab (Tauri drops this bit whenever it rewrites the window style).
             platform::make_non_activating(&window);
-            // Focus moved elsewhere: back to non-focusable.
-            if state.focusable.load(std::sync::atomic::Ordering::SeqCst)
-                && platform::foreground() != platform::hwnd(&window)
-            {
-                state.focusable.store(false, std::sync::atomic::Ordering::SeqCst);
-                let _ = window.set_focusable(false);
-            }
         }
     });
 }
@@ -202,8 +222,6 @@ pub fn take_focus(app: &AppHandle) {
     if previous.is_some() && previous != platform::hwnd(&window) {
         *state.previous_foreground.lock().unwrap() = previous;
     }
-    state.focusable.store(true, std::sync::atomic::Ordering::SeqCst);
-    let _ = window.set_focusable(true);
     platform::force_focus(&window);
 }
 
@@ -212,10 +230,6 @@ pub fn release_focus(app: &AppHandle) {
     let state = app.state::<OverlayState>();
     let previous = state.previous_foreground.lock().unwrap().take();
     platform::restore_focus(previous);
-    if let Some(window) = window(app) {
-        state.focusable.store(false, std::sync::atomic::Ordering::SeqCst);
-        let _ = window.set_focusable(false);
-    }
 }
 
 /// Lets the next app we launch (the browser) come to the front. Without this Windows keeps

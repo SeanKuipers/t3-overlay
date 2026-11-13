@@ -81,6 +81,8 @@ export interface OverlayDiagnostics {
   size: [number, number] | null;
   exStyle: string | null;
   focusableNow: boolean;
+  viewport: [number, number] | null;
+  scale: [number, number] | null;
   heartbeatAgeMs: number | null;
   errors: string[];
 }
@@ -92,7 +94,8 @@ export const native = {
   t3Connect: (serverUrl: string) => invoke<ConnectionStatus>("t3_connect", { serverUrl }),
   t3Disconnect: () => invoke<ConnectionStatus>("t3_disconnect"),
   t3Call: <T>(tool: string, args: Record<string, unknown>) => invoke<T>("t3_call", { tool, args }),
-  setHitRegions: (regions: Rect[]) => invoke<void>("set_hit_regions", { regions }),
+  setHitRegions: (regions: Rect[], viewport: [number, number]) =>
+    invoke<void>("set_hit_regions", { regions, viewport }),
   focusOverlay: () => invoke<void>("overlay_focus"),
   releaseOverlay: () => invoke<void>("overlay_release"),
   openSettings: () => invoke<void>("open_settings"),

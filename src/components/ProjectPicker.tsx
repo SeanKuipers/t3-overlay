@@ -83,8 +83,8 @@ export function ProjectPicker({ projects, value, onChange, disabled }: Props) {
       const target = e.target as Node;
       if (!popRef.current?.contains(target) && !triggerRef.current?.contains(target)) setOpen(false);
     };
+    // Only a click elsewhere (or Esc) closes it; focus moving around doesn't.
     window.addEventListener("pointerdown", onDown, true);
-    window.addEventListener("blur", () => setOpen(false), { once: true });
     return () => window.removeEventListener("pointerdown", onDown, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);

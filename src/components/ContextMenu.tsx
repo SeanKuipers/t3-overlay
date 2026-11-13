@@ -16,8 +16,7 @@ export interface MenuState {
 
 /**
  * A right-click menu in the overlay's own glass style. Closes on Esc, on a click
- * anywhere else in the overlay, when the overlay loses focus, or shortly after the
- * pointer leaves it.
+ * anywhere else in the overlay, or shortly after the pointer leaves it.
  */
 export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -41,11 +40,9 @@ export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () =>
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("pointerdown", onDown, true);
     window.addEventListener("keydown", onKey);
-    window.addEventListener("blur", onClose);
     return () => {
       window.removeEventListener("pointerdown", onDown, true);
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener("blur", onClose);
       window.clearTimeout(leaveTimer.current);
     };
   }, [onClose]);

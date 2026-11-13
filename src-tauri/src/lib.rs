@@ -155,7 +155,8 @@ async fn t3_call(state: State<'_, AppState>, tool: String, args: Value) -> Resul
 }
 
 #[tauri::command]
-fn set_hit_regions(state: State<'_, overlay::OverlayState>, regions: Vec<overlay::Rect>) {
+fn set_hit_regions(state: State<'_, overlay::OverlayState>, regions: Vec<overlay::Rect>, viewport: (f64, f64)) {
+    *state.viewport.lock().unwrap() = Some(viewport);
     *state.hit_regions.lock().unwrap() = regions;
 }
 

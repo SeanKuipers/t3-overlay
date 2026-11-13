@@ -12,17 +12,19 @@ export function useHitRegions(deps: unknown[]) {
     const report = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        const scale = window.devicePixelRatio || 1;
+        // CSS pixels plus the viewport size: Rust scales them by the window's real size, so a
+        // devicePixelRatio that disagrees with the window can't shift the clickable areas.
         const regions = [...document.querySelectorAll<HTMLElement>("[data-hit]")].map((el) => {
           const r = el.getBoundingClientRect();
           // `data-hover-id` regions get hover events from Rust (see useHoverId).
           const id = el.dataset.hoverId ?? null;
-          return { x: r.x * scale, y: r.y * scale, width: r.width * scale, height: r.height * scale, id };
+          return { x: r.x, y: r.y, width: r.width, height: r.height, id };
         });
-        const key = JSON.stringify(regions);
+        const viewport: [number, number] = [window.innerWidth, window.innerHeight];
+        const key = JSON.stringify([regions, viewport]);
         if (key !== last) {
           last = key;
-          native.setHitRegions(regions).catch(() => {});
+          native.setHitRegions(regions, viewport).catch(() => {});
         }
       });
     };
