@@ -57,13 +57,27 @@ pub fn place_and_show(app: &AppHandle) {
     platform::make_non_activating(&window);
 }
 
-/// Toggles click-through depending on whether the cursor is over an interactive region.
+/// Toggles click-through depending on whether the cursor is over an interactive region, and
+/// keeps the overlay above the game.
 pub fn spawn_hit_test_loop(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let mut interactive = false;
+        let mut last_foreground = None;
+        let mut tick: u32 = 0;
         loop {
             tokio::time::sleep(Duration::from_millis(40)).await;
             let Some(window) = window(&app) else { continue };
+
+            // "Always on top" alone isn't enough: League (and other topmost windows) jump
+            // above us when they're activated. Re-assert our place whenever the foreground
+            // window changes, and once a second regardless.
+            tick = tick.wrapping_add(1);
+            let foreground = platform::foreground();
+            if foreground != last_foreground || tick % 25 == 0 {
+                last_foreground = foreground;
+                platform::keep_on_top(&window);
+            }
+
             let state = app.state::<OverlayState>();
             let over = match (window.cursor_position(), window.outer_position()) {
                 (Ok(cursor), Ok(origin)) => {
@@ -119,7 +133,8 @@ mod platform {
     use windows::Win32::Foundation::HWND;
     use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
     use windows::Win32::UI::WindowsAndMessaging::{
-        AllowSetForegroundWindow, BringWindowToTop, ASFW_ANY, FindWindowW, GetForegroundWindow, GetWindowLongPtrW,
+        AllowSetForegroundWindow, BringWindowToTop, SetWindowPos, ASFW_ANY, HWND_TOPMOST,
+        SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, FindWindowW, GetForegroundWindow, GetWindowLongPtrW,
         GetWindowThreadProcessId, IsWindow, SetForegroundWindow, SetWindowLongPtrW, ShowWindow,
         GWL_EXSTYLE, SW_SHOW, WS_EX_TOOLWINDOW,
     };
@@ -145,6 +160,22 @@ mod platform {
                 let style = GetWindowLongPtrW(h, GWL_EXSTYLE);
                 SetWindowLongPtrW(h, GWL_EXSTYLE, style | WS_EX_TOOLWINDOW.0 as isize);
             }
+        }
+    }
+
+    /// Moves the window to the top of the topmost band without activating it.
+    pub fn keep_on_top(window: &WebviewWindow) {
+        let Some(h) = raw(window) else { return };
+        unsafe {
+            let _ = SetWindowPos(
+                h,
+                Some(HWND_TOPMOST),
+                0,
+                0,
+                0,
+                0,
+                SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_NOOWNERZORDER,
+            );
         }
     }
 
@@ -206,6 +237,7 @@ mod platform {
     }
     pub fn make_non_activating(_window: &WebviewWindow) {}
     pub fn allow_any_foreground() {}
+    pub fn keep_on_top(_window: &WebviewWindow) {}
     pub fn force_focus(window: &WebviewWindow) {
         let _ = window.set_focus();
     }
