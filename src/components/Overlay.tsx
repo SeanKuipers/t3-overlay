@@ -28,6 +28,8 @@ export function Overlay() {
   // typing a reply; then it stays (keyboard back to League) until you send or close it.
   const [pinned, setPinned] = useState(false);
   const [deathOpen, setDeathOpen] = useState(false);
+  // The – button: the inbox stays "open" (draft, thread, death state) but shrinks to a pill.
+  const [minimized, setMinimized] = useState(false);
   const [focused, setFocused] = useState(document.hasFocus());
   const [endDismissed, setEndDismissed] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -50,8 +52,10 @@ export function Overlay() {
   const hubShown = !!config && hubFor(game);
   const [hubChat, setHubChat] = useState(false);
   const inboxVisible = visible && !hubShown;
+  /** The full inbox card is up (not minimized to its pill). */
+  const inboxExpanded = inboxVisible && !minimized;
   /** A conversation is on screen (the inbox, or the hub's chat pane). */
-  const viewing = inboxVisible || (hubShown && hubChat);
+  const viewing = inboxExpanded || (hubShown && hubChat);
   const openRef = useRef(false);
   openRef.current = pinned || deathOpen;
 
@@ -71,7 +75,10 @@ export function Overlay() {
   const prev = useRef(game);
   useEffect(() => {
     const was = prev.current;
-    if (!was.dead && game.dead && config?.openOnDeath) setDeathOpen(true);
+    if (!was.dead && game.dead && config?.openOnDeath) {
+      setDeathOpen(true);
+      setMinimized(false);
+    }
     if (was.dead && !game.dead) {
       // Respawned: close, unless a reply is half-typed. Either way, keyboard back to League.
       const typing = Object.values(draftsRef.current).some((d) => d.trim());
@@ -107,6 +114,7 @@ export function Overlay() {
   const close = useCallback(() => {
     setPinned(false);
     setDeathOpen(false);
+    setMinimized(false);
     if (game.gameEnded) setEndDismissed(true);
     if (document.hasFocus()) native.releaseOverlay();
   }, [game.gameEnded]);
@@ -136,21 +144,32 @@ export function Overlay() {
             setHubChat(true);
             focusInput();
           }
-        } else if (inboxVisible) close();
+        } else if (inboxExpanded) close();
         else {
           setPinned(true);
+          setMinimized(false);
           focusInput();
         }
       }),
-    [hubShown, hubChat, inboxVisible, close, closeHubChat, focusInput],
+    [hubShown, hubChat, inboxExpanded, close, closeHubChat, focusInput],
   );
   // Esc closes the inbox, focused or not (registered only while it's open).
-  useEffect(() => on("hotkey://close", () => inboxVisible && close()), [inboxVisible, close]);
+  useEffect(() => on("hotkey://close", () => inboxExpanded && close()), [inboxExpanded, close]);
 
-  // Thread-switching hotkeys (and global Esc) exist only while the in-game inbox is open.
+  // Thread-switching hotkeys (and global Esc) exist only while the in-game inbox is up,
+  // not while it's minimized: then League gets those keys back.
   useEffect(() => {
-    native.setNavHotkeys(inboxVisible);
-  }, [inboxVisible]);
+    native.setNavHotkeys(inboxExpanded);
+  }, [inboxExpanded]);
+
+  const minimize = useCallback(() => {
+    setMinimized(true);
+    if (document.hasFocus()) native.releaseOverlay();
+  }, []);
+  const expand = useCallback(() => {
+    setMinimized(false);
+    focusInput();
+  }, [focusInput]);
 
   const cycle = useCallback(
     (step: number) => {
@@ -262,7 +281,7 @@ export function Overlay() {
   );
 
   // Updates install only while the overlay isn't in use.
-  const busy = inboxVisible || !!voice || sending || (hubShown && hubChat && focused);
+  const busy = inboxExpanded || !!voice || sending || (hubShown && hubChat && focused);
   useEffect(() => {
     native.setOverlayBusy(busy);
   }, [busy]);
@@ -287,6 +306,7 @@ export function Overlay() {
   const openThread = useCallback(
     (threadId: string) => {
       setSelectedId(threadId);
+      setMinimized(false);
       if (hubShown) setHubChat(true);
       else setPinned(true);
       focusInput();
@@ -302,7 +322,7 @@ export function Overlay() {
     [t3.dismissNotice, openThread],
   );
 
-  useHitRegions([inboxVisible, hubShown, hubChat, t3.threads.length, selectedId, sending]);
+  useHitRegions([inboxVisible, minimized, hubShown, hubChat, t3.threads.length, selectedId, sending]);
 
   const draft = selected ? drafts[selected.threadId] ?? "" : "";
 
@@ -325,7 +345,7 @@ export function Overlay() {
           onOpenSettings={() => native.openSettings()}
         />
       )}
-      {!inboxVisible && <Notices notices={notices} onOpen={openNotice} />}
+      {!inboxExpanded && <Notices notices={notices} onOpen={openNotice} />}
       {hubShown && (
         <Hub
           threads={t3.threads}
@@ -375,12 +395,15 @@ export function Overlay() {
           onSubmit={submit}
           onClose={close}
           onFocusRequest={focusInput}
+          minimized={minimized}
+          onMinimize={minimize}
+          onExpand={expand}
           onSteerQueued={onSteerQueued}
           onUnqueue={onUnqueue}
         />
       )}
       {voice && <VoiceHud voice={voice} />}
-      {!inboxVisible && <UpdatePill status={update.status} />}
+      {!inboxExpanded && <UpdatePill status={update.status} />}
     </div>
   );
 }

@@ -11,6 +11,10 @@ interface Props extends Omit<ConversationProps, "thread" | "threadCount" | "foot
   focused: boolean;
   onSelect: (threadId: string) => void;
   onFocusRequest: () => void;
+  /** Shrunk to a notification-sized pill (the – button); click it to expand. */
+  minimized: boolean;
+  onMinimize: () => void;
+  onExpand: () => void;
 }
 
 // ---------- position: draggable by the tab bar, remembered between games ----------
@@ -98,6 +102,27 @@ export function Inbox(props: Props) {
   const remaining = game.respawnAt ? Math.max(0, (game.respawnAt - Date.now()) / 1000) : 0;
   const progress = game.respawnTotal > 0 ? 1 - remaining / game.respawnTotal : 0;
 
+  if (props.minimized) {
+    const others = threads.filter((t) => t.unread && t.threadId !== selected?.threadId).length;
+    return (
+      <div className="inbox-pill glass" data-hit style={{ left: drag.pos.x, top: drag.pos.y }}>
+        <button className="pill-main" onClick={props.onExpand} title="Expand the inbox">
+          {selected && <span className={dotClass(selected)} />}
+          <span className="pill-title">{selected?.title || "Inbox"}</span>
+          {props.draft.trim() && <span className="pill-tag">unsent draft</span>}
+          {others > 0 && <span className="pill-tag new">+{others} new</span>}
+          {game.dead && <span className="timer">{Math.ceil(remaining)}s</span>}
+          <span className="pill-expand" aria-hidden>
+            ⤢
+          </span>
+        </button>
+        <button className="close" onClick={props.onClose} title="Close">
+          ×
+        </button>
+      </div>
+    );
+  }
+
   return (
     <>
     {/* While dragging, the whole screen catches the mouse so a fast drag can't slip off. */}
@@ -127,6 +152,9 @@ export function Inbox(props: Props) {
         </div>
         {game.dead && <span className="timer">respawn {Math.ceil(remaining)}s</span>}
         {game.gameEnded && !game.dead && <span className="timer ended">game over</span>}
+        <button className="close minimize" onClick={props.onMinimize} title="Minimize to a notification">
+          –
+        </button>
         <button className="close" onClick={props.onClose} title="Close (Esc)">
           ×
         </button>

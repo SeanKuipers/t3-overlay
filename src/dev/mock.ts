@@ -76,7 +76,7 @@ export async function installMock(scenario: string) {
   const game =
     scenario === "hub" || scenario === "hubchat" || scenario === "hubrun"
       ? { inGame: false, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 0, clientOpen: true }
-      : scenario === "dead"
+      : scenario === "dead" || scenario === "mini"
       ? { inGame: true, dead: true, respawnSeconds: 23, gameEnded: false, gameTime: 1085 }
       : scenario === "ended"
         ? { inGame: true, dead: false, respawnSeconds: 0, gameEnded: true, gameTime: 1900 }
@@ -85,6 +85,7 @@ export async function installMock(scenario: string) {
     emit("game://state", { ...game, respawnSeconds: game.dead ? 32 : 0 });
     setTimeout(() => emit("game://state", game), 50);
     if (scenario === "voice") emit("voice://state", { phase: "recording" });
+    if (scenario === "mini") setTimeout(() => document.querySelector<HTMLButtonElement>(".close.minimize")?.click(), 600);
     if (scenario === "hubchat" || scenario === "hubrun") setTimeout(() => emit("hotkey://inbox", null), 400);
   }, 300);
 }
