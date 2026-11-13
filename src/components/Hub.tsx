@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { isWorking } from "../lib/t3";
-import { dotClass, previewLine, relativeTimeShort } from "../lib/threadUi";
+import { dotClass, previewLine, relativeTimeShort, workingFor } from "../lib/threadUi";
 import { useTicker } from "../lib/useGame";
 import type { ThreadView } from "../lib/useT3";
 import { Conversation, type ConversationProps } from "./Conversation";
@@ -37,7 +37,8 @@ function Avatar({ thread }: { thread: ThreadView }) {
   return (
     <span className="avatar" style={{ background: `hsl(${hue(thread.projectId)} 45% 32%)` }}>
       {initial}
-      {isWorking(thread.status) && <span className="avatar-ring" />}
+      {isWorking(thread.status) && thread.questions.length === 0 && <span className="avatar-ring" />}
+      {thread.questions.length > 0 && <span className="avatar-ask">?</span>}
       {thread.unread && <span className="avatar-unread" />}
     </span>
   );
@@ -60,7 +61,7 @@ export function Hub(props: Props) {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === "1");
   const [resizing, setResizing] = useState(false);
   const [search, setSearch] = useState("");
-  useTicker(true, 30_000); // keeps "5m" fresh
+  useTicker(true, 5_000); // keeps "5m" and "Working 4m" fresh
 
   useEffect(() => {
     localStorage.setItem(COLLAPSED_KEY, collapsed ? "1" : "0");
@@ -182,14 +183,16 @@ export function Hub(props: Props) {
                   <span className="row-main">
                     <span className="row-top">
                       <span className="row-name">{t.title || "Untitled"}</span>
-                      {isWorking(t.status) ? (
-                        <span className="row-working">Working</span>
+                      {t.questions.length > 0 ? (
+                        <span className="row-ask">Question</span>
+                      ) : isWorking(t.status) ? (
+                        <span className="row-working">Working {workingFor(t)}</span>
                       ) : (
                         <span className="row-time">{relativeTimeShort(t.updatedAt)}</span>
                       )}
                       {t.unread && <span className="row-dot" />}
                     </span>
-                    <span className="row-sub">{previewLine(t)}</span>
+                    <span className="row-sub">{t.questions[0]?.questions[0]?.question ?? previewLine(t)}</span>
                   </span>
                 </button>
               ))

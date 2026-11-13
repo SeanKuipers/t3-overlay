@@ -6,7 +6,8 @@ Read and answer your [T3 Code](https://t3.codes) agents while playing League of 
 
 - **While you're alive:** a small ticker in the corner shows which agents are working and which have replied. When an agent finishes, the first line of its reply pops up for a few seconds. Click either one to open that thread in the inbox.
 - **While you're dead:** the **Respawn Inbox** opens on the left of the screen, clear of the shop. Drag it by its tab bar to wherever suits your HUD; double-click the tab bar to put it back. It shows your last message, the agent's reply, and a reply box, with a bar counting down to your respawn. It closes when you respawn, unless you've started typing a reply. In that case it stays open, and gives the keyboard back to League, until you send it or close the inbox with `Esc` or `×`.
-- **Outside games:** while the League client is open, a **chat hub** docks on the left. It lists your recent threads with a search box, and opens a conversation beside the list when you click one. Drag its edge to resize it, or collapse it to a thin strip. Its layout follows [OpenBot](https://github.com/CopilotKit/OpenBot)'s sidebar. Settings → Chat hub can show it always, or never.
+- **Agent questions:** when an agent stops to ask you something, the question shows up with its options. Click one to answer; a single-choice question is answered with that one click, which fits a death timer. The ticker says "<thread> asks", and the hub marks the thread with an orange **Question** label.
+- **Outside games:** a **chat hub** docks on the left. It lists your recent threads with a search box, and opens a conversation beside the list when you click one. Drag its edge to resize it, or collapse it to a thin strip. Its layout follows [OpenBot](https://github.com/CopilotKit/OpenBot)'s sidebar. Settings → Chat hub can limit it to while the League client is open, or turn it off. Any fullscreen app, such as TFT or another game, counts as a game: the hub hides and the ticker and hotkey inbox take over.
 - **Reply by typing or by voice:** hold a key, talk, and let go. [Hex](https://github.com/anomalyco/hex) turns your speech into text and the overlay sends it to the thread.
 
 <p>
@@ -63,6 +64,17 @@ New versions are published as signed releases. Pushes to `main` only run the che
 
 To update right now, even mid-game: once a new version is downloaded, the inbox's tab bar shows **⬆ update to v…**. Click it to install. **Update now** in the tray menu, or the version at the bottom of the hub, does the same. To turn automatic updates off, use **Settings → Updates**. Updates are signed, and the overlay refuses any installer that isn't signed with the project's key.
 
+### GlazeWM and other tiling window managers
+
+The overlay marks itself as a tool window, which GlazeWM doesn't manage, so it stays on whichever workspace you're on. If your window manager still grabs it, add an ignore rule. For GlazeWM, add this under `window_rules`:
+
+```yaml
+- commands: ['ignore']
+  match:
+    - window_process: { equals: 't3-overlay' }
+      window_title: { equals: 'T3 Overlay' }
+```
+
 ## How it works
 
 ```
@@ -76,7 +88,7 @@ To update right now, even mid-game: once a new version is downloaded, the inbox'
 └───────────────────┘   └──────────────────────────────────┘        └──────────────────┘
 ```
 
-- **T3 Code:** the overlay is an ordinary MCP client of T3 Code's built-in `/mcp` endpoint. It signs in with OAuth 2.1 using PKCE and a loopback redirect, and you approve it on T3's own page. It only calls five tools: `t3_project_list`, `t3_thread_list`, `t3_thread_read`, `t3_thread_send` and `t3_queue` (to list, steer or drop queued messages). The credential is valid for 30 days and stays on your PC, in `%APPDATA%\io.github.seankuipers.t3overlay\auth.json`.
+- **T3 Code:** the overlay is an ordinary MCP client of T3 Code's built-in `/mcp` endpoint. It signs in with OAuth 2.1 using PKCE and a loopback redirect, and you approve it on T3's own page. It only calls six tools: `t3_project_list`, `t3_thread_list`, `t3_thread_read`, `t3_thread_send`, `t3_queue` (to list, steer or drop queued messages) and `t3_pending_request` (to answer an agent's questions; it can't approve permission requests). The credential is valid for 30 days and stays on your PC, in `%APPDATA%\io.github.seankuipers.t3overlay\auth.json`.
 - **Game state:** read from Riot's official [Live Client Data API](https://developer.riotgames.com/docs/lol#game-client-api) on `127.0.0.1:2999`, which the game itself provides. The overlay never reads game memory, injects anything, or sends input to the game.
 - **Overlay window:** a transparent, always-on-top window. Mouse clicks pass through to the game everywhere except on the inbox card. It only takes keyboard focus when you press the hotkey or click the card, and gives focus back to League afterwards.
 - **Voice:** the overlay calls Hex's local control API. It sends `dictation start` when you press the key, and `dictation stop` with `print: true` when you let go. With `print`, Hex returns the transcript in its response and doesn't paste anything or touch the clipboard, so dictated text can't end up in League chat. Hex still plays its start and stop sounds, and your normal Hex shortcut keeps working outside the game.

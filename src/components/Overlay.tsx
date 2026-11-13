@@ -12,6 +12,8 @@ import { Notices, type NoticeView } from "./Notices";
 import { Ticker } from "./Ticker";
 import { VoiceHud, type VoiceView } from "./VoiceHud";
 
+const DRAFTS_KEY = "t3-overlay:drafts";
+
 export function Overlay() {
   const [config, setConfig] = useState<Config | null>(null);
   useEffect(() => {
@@ -33,7 +35,18 @@ export function Overlay() {
   const [focused, setFocused] = useState(document.hasFocus());
   const [endDismissed, setEndDismissed] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  // Drafts survive restarts (e.g. an update mid-game).
+  const [drafts, setDrafts] = useState<Record<string, string>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(DRAFTS_KEY) ?? "{}");
+    } catch {
+      return {};
+    }
+  });
+  useEffect(() => {
+    const kept = Object.fromEntries(Object.entries(drafts).filter(([, d]) => d.trim()));
+    localStorage.setItem(DRAFTS_KEY, JSON.stringify(kept));
+  }, [drafts]);
   const draftsRef = useRef(drafts);
   draftsRef.current = drafts;
   const [sending, setSending] = useState(false);
@@ -47,8 +60,10 @@ export function Overlay() {
 
   // Outside games the chat hub docks on the left instead of the floating inbox.
   const hubMode = config?.hubMode ?? "client";
-  const hubFor = (g: { inGame: boolean; clientOpen: boolean }) =>
-    !g.inGame && hubMode !== "off" && (hubMode === "always" || g.clientOpen);
+  /** League, TFT or any fullscreen app: the in-game overlay (ticker, inbox) instead of the hub. */
+  const inGameMode = game.inGame || game.fullscreenApp;
+  const hubFor = (g: { inGame: boolean; clientOpen: boolean; fullscreenApp: boolean }) =>
+    !g.inGame && !g.fullscreenApp && hubMode !== "off" && (hubMode === "always" || g.clientOpen);
   const hubShown = !!config && hubFor(game);
   const [hubChat, setHubChat] = useState(false);
   const inboxVisible = visible && !hubShown;
@@ -78,16 +93,21 @@ export function Overlay() {
     if (!was.dead && game.dead && config?.openOnDeath) {
       setDeathOpen(true);
       setMinimized(false);
+      // An agent waiting on a question goes first.
+      const asking = threadsRef.current.find((t) => t.questions.length > 0);
+      if (asking) setSelectedId(asking.threadId);
     }
     if (was.dead && !game.dead) {
       // Respawned: close, unless a reply is half-typed. Either way, keyboard back to League.
+      // Typing: keep it, but shrunk to the pill so it's out of the way.
       const typing = Object.values(draftsRef.current).some((d) => d.trim());
-      if (!typing) setDeathOpen(false);
+      if (typing) setMinimized(true);
+      else setDeathOpen(false);
       if (document.hasFocus()) native.releaseOverlay();
     }
     if (!was.inGame && game.inGame) setEndDismissed(false);
-    // Left the game: whatever was open in the inbox carries over into the hub.
-    if (was.inGame && !game.inGame && config && hubFor(game)) {
+    // Left the game (or fullscreen app): whatever was open in the inbox carries over into the hub.
+    if (config && !hubFor(was) && hubFor(game)) {
       if (openRef.current) setHubChat(true);
       setPinned(false);
       setDeathOpen(false);
@@ -120,8 +140,8 @@ export function Overlay() {
   }, [game.gameEnded]);
   const closeRef = useRef(close);
   closeRef.current = close;
-  const inGameRef = useRef(game.inGame);
-  inGameRef.current = game.inGame;
+  const inGameRef = useRef(game.inGame || game.fullscreenApp);
+  inGameRef.current = game.inGame || game.fullscreenApp;
 
   const focusInput = useCallback(async () => {
     await native.focusOverlay();
@@ -220,8 +240,8 @@ export function Overlay() {
     if (!ok) return;
     setDrafts((d) => ({ ...d, [selected.threadId]: "" }));
     // Sent: close and go straight back to the game.
-    if (game.inGame) close();
-  }, [selected, drafts, sendTo, game.inGame, close]);
+    if (inGameMode) close();
+  }, [selected, drafts, sendTo, inGameMode, close]);
 
   // Voice: Hex records while the key is held; the transcript goes to the target thread.
   const threadsRef = useRef(t3.threads);
@@ -300,7 +320,7 @@ export function Overlay() {
 
   // The ticker stays up while the inbox is open too, so it's always there to click.
   // (The hub replaces it outside games.)
-  const showTicker = (game.inGame || !!config?.tickerOutsideGame) && !hubShown;
+  const showTicker = (inGameMode || !!config?.tickerOutsideGame) && !hubShown;
 
   // Clicking the ticker or a notice opens that thread in the inbox, ready to reply.
   const openThread = useCallback(
@@ -334,6 +354,9 @@ export function Overlay() {
   };
   const onSteerQueued = queueAction(t3.steer);
   const onUnqueue = queueAction(t3.unqueue);
+  const onAnswer = async (requestId: string, answers: Record<string, string | string[]>) => {
+    if (selected) await t3.answer(selected.threadId, requestId, answers);
+  };
 
   return (
     <div className="overlay-root">
@@ -371,6 +394,7 @@ export function Overlay() {
           onOpenSettings={() => native.openSettings()}
           onSteerQueued={onSteerQueued}
           onUnqueue={onUnqueue}
+          onAnswer={onAnswer}
         />
       )}
       {inboxVisible && (
@@ -400,6 +424,7 @@ export function Overlay() {
           onExpand={expand}
           onSteerQueued={onSteerQueued}
           onUnqueue={onUnqueue}
+          onAnswer={onAnswer}
         />
       )}
       {voice && <VoiceHud voice={voice} />}

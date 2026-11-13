@@ -52,6 +52,7 @@ export interface TimelineItem {
 
 interface ThreadReadResult {
   thread?: { activeRunId: string | null };
+  recentRuns?: { status: string; requestedAt: string; startedAt: string | null }[];
   items: TimelineItem[];
   nextPosition: number | null;
   hasMore: boolean;
@@ -68,6 +69,25 @@ export interface Conversation {
   replies: TimelineItem[];
   /** Identifies the newest reply, for unread tracking. */
   replyKey: string | null;
+  /** When the latest run started (for "working 4m"). */
+  runStartedAt: string | null;
+}
+
+/** A question an agent is waiting on (T3's ask-the-user request). */
+export interface PendingQuestion {
+  id: string;
+  header: string;
+  question: string;
+  options: { label: string; description: string; value?: string }[];
+  multiSelect?: boolean;
+  allowCustomAnswer?: boolean;
+  initialAnswer?: string;
+  required?: boolean;
+}
+
+export interface PendingRequest {
+  requestId: string;
+  questions: PendingQuestion[];
 }
 
 /** A message waiting to run as the thread's next turn. */
@@ -148,6 +168,7 @@ const MESSAGE_TYPES = new Set(["user_message", "assistant_message", "plan"]);
 /** Reads the latest exchange: your last message and the agent's replies after it. */
 export async function readConversation(thread: Thread): Promise<Conversation> {
   const items: TimelineItem[] = [];
+  let runStartedAt: string | null = null;
   let afterPosition: number | undefined =
     thread.itemCount > WINDOW ? thread.itemCount - WINDOW : undefined;
   for (let page = 0; page < 4; page++) {
@@ -160,6 +181,8 @@ export async function readConversation(thread: Thread): Promise<Conversation> {
       ...(afterPosition === undefined ? {} : { afterPosition }),
     });
     items.push(...result.items);
+    const run = result.recentRuns?.[0];
+    if (page === 0 && run) runStartedAt = run.startedAt ?? run.requestedAt;
     if (!result.hasMore || result.nextPosition === null || afterPosition === undefined) break;
     afterPosition = result.nextPosition;
   }
@@ -175,7 +198,7 @@ export async function readConversation(thread: Thread): Promise<Conversation> {
   const prompt = promptIndex >= 0 ? ordered[promptIndex] : null;
   const replies = ordered.slice(promptIndex + 1).filter((i) => i.type !== "user_message");
   const last = replies.at(-1);
-  return { prompt, replies, replyKey: last ? `${last.itemId}@${last.updatedAt}` : null };
+  return { prompt, replies, replyKey: last ? `${last.itemId}@${last.updatedAt}` : null, runStartedAt };
 }
 
 /** Messages queued behind the running turn, in send order. Empty on servers without queues. */
@@ -194,6 +217,21 @@ export async function steerQueued(threadId: string, queuedRunId: string) {
   const targetRunId = read.thread?.activeRunId;
   if (!targetRunId) throw new Error("The agent isn't working any more; the message will run next.");
   return native.t3Call("t3_queue", { action: "promote_to_steer", threadId, queuedRunId, targetRunId });
+}
+
+/** Ids of the questions a thread's agent is waiting on. (Approvals are not listed.) */
+export async function listPendingIds(threadId: string): Promise<string[]> {
+  const result = await native.t3Call<{ requestIds: string[] }>("t3_pending_request", { action: "list", threadId });
+  return result?.requestIds ?? [];
+}
+
+export function readPending(threadId: string, requestId: string) {
+  return native.t3Call<PendingRequest>("t3_pending_request", { action: "read", threadId, requestId });
+}
+
+/** `answers`: question id → option value(s) or your own text, the way T3's UI sends them. */
+export function answerPending(threadId: string, requestId: string, answers: Record<string, string | string[]>) {
+  return native.t3Call("t3_pending_request", { action: "respond", threadId, requestId, answers });
 }
 
 export async function sendMessage(threadId: string, message: string, mode: SendMode) {

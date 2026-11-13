@@ -41,7 +41,7 @@ pub struct Config {
     pub settings_version: u32,
 }
 
-const SETTINGS_VERSION: u32 = 2;
+const SETTINGS_VERSION: u32 = 3;
 
 impl Config {
     /// Brings settings saved by an older version up to date. Returns true if anything changed.
@@ -56,6 +56,10 @@ impl Config {
         // v2: the ticker is clickable now, so show it outside games too.
         if self.settings_version < 2 {
             self.ticker_outside_game = true;
+        }
+        // v3: the overlay is always there; the hub shows whenever no game/fullscreen app is up.
+        if self.settings_version < 3 && self.hub_mode == "client" {
+            self.hub_mode = "always".into();
         }
         self.settings_version = SETTINGS_VERSION;
         true
@@ -77,7 +81,7 @@ impl Default for Config {
             recent_hours: 2,
             poll_seconds: 4,
             send_mode: "queue".into(),
-            hub_mode: "client".into(),
+            hub_mode: "always".into(),
             auto_update: true,
             settings_version: SETTINGS_VERSION,
         }

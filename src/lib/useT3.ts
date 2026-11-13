@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { errorMessage, isT3Error, native, on, type ConnectionStatus, type SendMode } from "./native";
 import {
+  answerPending,
   cancelQueued,
+  listPendingIds,
+  readPending,
   isWorking,
   listQueue,
   listRecentThreads,
@@ -9,6 +12,7 @@ import {
   sendMessage,
   steerQueued,
   type Conversation,
+  type PendingRequest,
   type QueuedMessage,
   type Thread,
 } from "./t3";
@@ -18,6 +22,8 @@ export interface ThreadView extends Thread {
   unread: boolean;
   /** Messages queued behind the running turn (only while the agent works). */
   queue: QueuedMessage[];
+  /** Questions the agent is waiting on you to answer. */
+  questions: PendingRequest[];
 }
 
 export interface Notice {
@@ -55,6 +61,8 @@ export function useT3(pollSeconds: number, recentHours: number) {
   const cache = useRef(new Map<string, { updatedAt: string; conversation: Conversation }>());
   const lastStatus = useRef(new Map<string, string>());
   const queues = useRef(new Map<string, QueuedMessage[]>());
+  const requests = useRef(new Map<string, PendingRequest>()); // by requestId, read once
+  const answered = useRef(new Set<string>());
   const noticeId = useRef(0);
 
   useEffect(() => {
@@ -98,7 +106,7 @@ export function useT3(pollSeconds: number, recentHours: number) {
           setTimeout(() => setNotices((n) => n.filter((x) => x.id !== id)), 7000);
         }
         lastStatus.current.set(thread.threadId, thread.status);
-        views.push({ ...thread, conversation, unread, queue: [] });
+        views.push({ ...thread, conversation, unread, queue: [], questions: [] });
       }
       // Queues only exist while a turn runs.
       await Promise.all(
@@ -113,6 +121,25 @@ export function useT3(pollSeconds: number, recentHours: number) {
             // Older server, or a hiccup: keep what we had.
           }
           v.queue = queues.current.get(v.threadId) ?? [];
+          try {
+            const ids = (await listPendingIds(v.threadId)).filter((id) => !answered.current.has(id));
+            for (const id of ids) {
+              if (!requests.current.has(id)) {
+                requests.current.set(id, await readPending(v.threadId, id));
+                // A new question: say so, like a reply.
+                const q = requests.current.get(id)?.questions[0];
+                const noticeKey = ++noticeId.current;
+                setNotices((n) => [
+                  ...n.slice(-2),
+                  { id: noticeKey, threadId: v.threadId, title: `${v.title} has a question`, text: q?.question ?? "" },
+                ]);
+                setTimeout(() => setNotices((n) => n.filter((x) => x.id !== noticeKey)), 12000);
+              }
+            }
+            v.questions = ids.map((id) => requests.current.get(id)!).filter(Boolean);
+          } catch {
+            // Older server without questions.
+          }
         }),
       );
       persistSeen();
@@ -194,9 +221,22 @@ export function useT3(pollSeconds: number, recentHours: number) {
     [],
   );
 
+  /** Answers an agent's question. */
+  const answer = useCallback(
+    async (threadId: string, requestId: string, answers: Record<string, string | string[]>) => {
+      await answerPending(threadId, requestId, answers);
+      answered.current.add(requestId);
+      setThreads((list) =>
+        list.map((t) => (t.threadId === threadId ? { ...t, questions: t.questions.filter((r) => r.requestId !== requestId) } : t)),
+      );
+      window.setTimeout(refresh, 800);
+    },
+    [refresh],
+  );
+
   const dismissNotice = useCallback((id: number | string) => {
     setNotices((n) => n.filter((x) => x.id !== id));
   }, []);
 
-  return { status, threads, error, notices, markRead, send, refresh, dismissNotice, steer, unqueue };
+  return { status, threads, error, notices, markRead, send, refresh, dismissNotice, steer, unqueue, answer };
 }

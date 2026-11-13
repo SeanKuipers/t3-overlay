@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { native, on, type GameState } from "./native";
 
-const IDLE: GameState = { inGame: false, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 0, clientOpen: false };
+const IDLE: GameState = { inGame: false, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 0, clientOpen: false, fullscreenApp: false };
 
 export interface Game extends GameState {
   /** Epoch ms when you respawn, while dead. */

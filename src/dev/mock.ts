@@ -46,6 +46,25 @@ export async function installMock(scenario: string) {
           }
           if (args.tool === "t3_thread_read") return { items: reads[a.threadId] ?? [], nextPosition: null, hasMore: false };
           if (args.tool === "t3_thread_send") return { delivery: "started", status: "running" };
+          if (args.tool === "t3_pending_request") {
+            if (a.action === "list") return { requestIds: a.threadId === "t2" && scenario === "hubask" ? ["r1"] : [] };
+            if (a.action === "read")
+              return {
+                requestId: "r1",
+                questions: [
+                  {
+                    id: "q1",
+                    header: "Hotkey storage",
+                    question: "Where should the recorded hotkeys be saved?",
+                    options: [
+                      { label: "config.json", description: "Next to the other settings" },
+                      { label: "Registry", description: "HKCU, per user" },
+                    ],
+                  },
+                ],
+              };
+            return {};
+          }
           if (args.tool === "t3_queue")
             return a.action === "list" && a.threadId === "t2"
               ? { items: [{ queuedRunId: "q1", text: "after that, also add a reset-to-defaults button", truncated: false }], nextCursor: null }
@@ -53,7 +72,7 @@ export async function installMock(scenario: string) {
           return null;
         }
         case "game_state":
-          return { inGame: false, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 0, clientOpen: false };
+          return { inGame: false, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 0, clientOpen: false, fullscreenApp: false };
         case "hex_status":
           return "idle";
         case "plugin:app|version":
@@ -71,11 +90,11 @@ export async function installMock(scenario: string) {
   // Make t1 count as a fresh, unread reply.
   localStorage.setItem(
     "t3-overlay:seen",
-    JSON.stringify(scenario === "hubrun" ? { t1: "a1@" + iso(1), t3: "a3@" + iso(200) } : { t3: "a3@" + iso(200) }),
+    JSON.stringify(scenario === "hubrun" || scenario === "hubask" ? { t1: "a1@" + iso(1), t3: "a3@" + iso(200) } : { t3: "a3@" + iso(200) }),
   );
   const game =
-    scenario === "hub" || scenario === "hubchat" || scenario === "hubrun"
-      ? { inGame: false, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 0, clientOpen: true }
+    scenario === "hub" || scenario === "hubchat" || scenario === "hubrun" || scenario === "hubask"
+      ? { inGame: false, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 0, clientOpen: true, fullscreenApp: false }
       : scenario === "dead" || scenario === "mini"
       ? { inGame: true, dead: true, respawnSeconds: 23, gameEnded: false, gameTime: 1085 }
       : scenario === "ended"
@@ -86,6 +105,6 @@ export async function installMock(scenario: string) {
     setTimeout(() => emit("game://state", game), 50);
     if (scenario === "voice") emit("voice://state", { phase: "recording" });
     if (scenario === "mini") setTimeout(() => document.querySelector<HTMLButtonElement>(".close.minimize")?.click(), 600);
-    if (scenario === "hubchat" || scenario === "hubrun") setTimeout(() => emit("hotkey://inbox", null), 400);
+    if (scenario === "hubchat" || scenario === "hubrun" || scenario === "hubask") setTimeout(() => emit("hotkey://inbox", null), 400);
   }, 300);
 }

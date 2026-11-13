@@ -1,4 +1,6 @@
 import { isWorking } from "../lib/t3";
+import { workingFor } from "../lib/threadUi";
+import { useTicker } from "../lib/useGame";
 import type { ThreadView } from "../lib/useT3";
 
 interface Props {
@@ -11,6 +13,7 @@ interface Props {
 
 /** One line in the top-left corner. Click an item to open it in the inbox. */
 export function Ticker({ threads, connected, onOpen, onOpenSettings }: Props) {
+  useTicker(threads.some((t) => isWorking(t.status)), 5_000);
   if (!connected) {
     return (
       <button className="ticker glass" data-hit onClick={onOpenSettings} title="Open Settings">
@@ -18,10 +21,12 @@ export function Ticker({ threads, connected, onOpen, onOpenSettings }: Props) {
       </button>
     );
   }
-  const working = threads.filter((t) => isWorking(t.status));
+  const asking = threads.filter((t) => t.questions.length > 0);
+  const working = threads.filter((t) => isWorking(t.status) && t.questions.length === 0);
   const unread = threads.filter((t) => t.unread);
-  if (working.length === 0 && unread.length === 0) return null;
+  if (working.length === 0 && unread.length === 0 && asking.length === 0) return null;
   const items = [
+    ...asking.map((t) => ({ t, kind: "ask" as const })),
     ...unread.map((t) => ({ t, kind: "new" as const })),
     ...working.map((t) => ({ t, kind: "run" as const })),
   ];
@@ -33,7 +38,16 @@ export function Ticker({ threads, connected, onOpen, onOpenSettings }: Props) {
           {i > 0 && <span className="sep">·</span>}
           <button className="ticker-open" onClick={() => onOpen(t.threadId)} title={`Open ${t.title}`}>
             <span className={`dot ${kind}`} />
-            {kind === "new" ? <b>{t.title} replied</b> : t.title}
+            {kind === "ask" ? (
+              <b className="ask">{t.title} asks</b>
+            ) : kind === "new" ? (
+              <b>{t.title} replied</b>
+            ) : (
+              <>
+                {t.title}
+                {workingFor(t) && <span className="ticker-time">{workingFor(t)}</span>}
+              </>
+            )}
           </button>
         </span>
       ))}

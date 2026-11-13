@@ -2,7 +2,10 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from "rea
 import Markdown from "react-markdown";
 import type { SendMode, UpdateStatus } from "../lib/native";
 import { isWorking } from "../lib/t3";
+import { workingFor } from "../lib/threadUi";
+import { useTicker } from "../lib/useGame";
 import type { ThreadView } from "../lib/useT3";
+import { Questions } from "./Questions";
 
 export interface ConversationProps {
   thread: ThreadView | null;
@@ -25,6 +28,8 @@ export interface ConversationProps {
   /** T3's queued-message actions: send it into the running turn now, or drop it. */
   onSteerQueued: (queuedRunId: string) => void;
   onUnqueue: (queuedRunId: string) => void;
+  /** Answers one of the agent's questions. */
+  onAnswer: (requestId: string, answers: Record<string, string | string[]>) => Promise<void>;
   /** Shown under the reply box, e.g. the respawn bar. */
   footer?: ReactNode;
 }
@@ -60,6 +65,7 @@ function effectiveMode(base: SendMode, alternate: boolean): "queue" | "steer" {
 export function Conversation(props: ConversationProps) {
   const { thread } = props;
   const queue = thread?.queue ?? [];
+  useTicker(!!thread && isWorking(thread.status), 1000); // the "working 4m" clock
   // Holding Ctrl previews the alternate mode on the send button, like T3.
   const [ctrl, setCtrl] = useState(false);
   useEffect(() => {
@@ -129,12 +135,14 @@ export function Conversation(props: ConversationProps) {
             ))}
             {isWorking(thread!.status) && (
               <div className="working">
-                <span className="spinner" /> Working…
+                <span className="spinner" /> Working{workingFor(thread!) && ` for ${workingFor(thread!)}`}…
               </div>
             )}
           </>
         )}
       </div>
+
+      {thread && <Questions requests={thread.questions} onAnswer={props.onAnswer} />}
 
       {queue.length > 0 && (
         <div className="queued" aria-label="Queued messages">

@@ -51,13 +51,16 @@ pub fn place_and_show(app: &AppHandle) {
         let _ = window.set_position(PhysicalPosition::new(pos.x, pos.y));
         let _ = window.set_size(PhysicalSize::new(size.width, size.height));
     }
-    let _ = window.set_ignore_cursor_events(true);
     let _ = window.set_always_on_top(true);
+    // Mark it as a tool window *before* it first appears: tiling window managers such as
+    // GlazeWM skip tool windows, so the overlay stays on whichever workspace is active
+    // instead of being tiled and hidden with workspace 1.
+    platform::make_non_activating(&window);
+    platform::set_click_through(&window, true);
     // Showing can activate the window. Mid-game (e.g. right after an update restart) that
     // would steal keyboard focus from League, so hand it straight back.
     let before = platform::foreground();
-    let _ = window.show();
-    platform::make_non_activating(&window);
+    platform::show_without_activating(&window);
     platform::keep_on_top(&window);
     if before.is_some() && platform::foreground() == platform::hwnd(&window) {
         platform::restore_focus(before);
@@ -96,8 +99,9 @@ pub fn spawn_hit_test_loop(app: AppHandle) {
             };
             if over != interactive {
                 interactive = over;
-                let _ = window.set_ignore_cursor_events(!over);
+                platform::set_click_through(&window, !over);
             }
+            platform::make_non_activating(&window);
         }
     });
 }
@@ -141,7 +145,8 @@ mod platform {
     use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
     use windows::Win32::UI::WindowsAndMessaging::{
         AllowSetForegroundWindow, BringWindowToTop, SetWindowPos, ASFW_ANY, HWND_TOPMOST,
-        SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, FindWindowW, GetForegroundWindow, GetWindowLongPtrW,
+        SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SW_SHOWNOACTIVATE,
+        WS_EX_LAYERED, WS_EX_TRANSPARENT, FindWindowW, GetForegroundWindow, GetWindowLongPtrW,
         GetWindowThreadProcessId, IsWindow, SetForegroundWindow, SetWindowLongPtrW, ShowWindow,
         GWL_EXSTYLE, SW_SHOW, WS_EX_TOOLWINDOW,
     };
@@ -160,12 +165,39 @@ mod platform {
         (!h.0.is_null()).then_some(h.0 as isize)
     }
 
-    /// Keeps the window out of Alt+Tab.
+    /// Marks the window as a tool window: out of Alt+Tab, and ignored by tiling window
+    /// managers (GlazeWM). Cheap to call repeatedly; only writes when the bit is missing.
     pub fn make_non_activating(window: &WebviewWindow) {
         if let Some(h) = raw(window) {
             unsafe {
                 let style = GetWindowLongPtrW(h, GWL_EXSTYLE);
-                SetWindowLongPtrW(h, GWL_EXSTYLE, style | WS_EX_TOOLWINDOW.0 as isize);
+                let tool = WS_EX_TOOLWINDOW.0 as isize;
+                if style & tool == 0 {
+                    SetWindowLongPtrW(h, GWL_EXSTYLE, style | tool);
+                }
+            }
+        }
+    }
+
+    /// Click-through on/off, done directly on the window style. (Tauri's own
+    /// `set_ignore_cursor_events` rewrites every extended style bit, which would drop the
+    /// tool-window bit and let GlazeWM grab the window.)
+    pub fn set_click_through(window: &WebviewWindow, on: bool) {
+        let Some(h) = raw(window) else { return };
+        unsafe {
+            let style = GetWindowLongPtrW(h, GWL_EXSTYLE);
+            let bits = (WS_EX_TRANSPARENT.0 | WS_EX_LAYERED.0) as isize;
+            let next = (if on { style | bits } else { style & !bits }) | WS_EX_TOOLWINDOW.0 as isize;
+            if next != style {
+                SetWindowLongPtrW(h, GWL_EXSTYLE, next);
+            }
+        }
+    }
+
+    pub fn show_without_activating(window: &WebviewWindow) {
+        if let Some(h) = raw(window) {
+            unsafe {
+                let _ = ShowWindow(h, SW_SHOWNOACTIVATE);
             }
         }
     }
@@ -243,6 +275,12 @@ mod platform {
         None
     }
     pub fn make_non_activating(_window: &WebviewWindow) {}
+    pub fn set_click_through(window: &WebviewWindow, on: bool) {
+        let _ = window.set_ignore_cursor_events(on);
+    }
+    pub fn show_without_activating(window: &WebviewWindow) {
+        let _ = window.show();
+    }
     pub fn allow_any_foreground() {}
     pub fn keep_on_top(_window: &WebviewWindow) {}
     pub fn force_focus(window: &WebviewWindow) {

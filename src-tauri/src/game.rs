@@ -22,6 +22,8 @@ pub struct GameState {
     pub game_time: f64,
     /// The League client (lobby) window is open and not minimized.
     pub client_open: bool,
+    /// Some fullscreen app (TFT, another game, a video) has focus: treated like a game.
+    pub fullscreen_app: bool,
 }
 
 /// The latest state, for windows that start listening after it was emitted.
@@ -80,7 +82,7 @@ pub fn parse_state(active_name: &str, players: &Value, events: Option<&Value>, s
         .and_then(|s| s.get("gameTime"))
         .and_then(Value::as_f64)
         .unwrap_or(0.0);
-    GameState { in_game: true, dead, respawn_seconds, game_ended, game_time, client_open: false }
+    GameState { in_game: true, dead, respawn_seconds, game_ended, game_time, ..Default::default() }
 }
 
 async fn poll_once(http: &reqwest::Client) -> GameState {
@@ -104,12 +106,15 @@ pub fn spawn_watcher(app: AppHandle) {
         loop {
             let mut state = poll_once(&http).await;
             state.client_open = platform::client_open();
+            // While our own overlay has focus, keep the previous answer.
+            state.fullscreen_app = platform::fullscreen_app()
+                .unwrap_or_else(|| last.as_ref().is_some_and(|l| l.fullscreen_app));
             if last.as_ref() != Some(&state) {
                 let _ = app.emit("game://state", &state);
                 *LAST.lock().unwrap() = Some(state.clone());
                 last = Some(state.clone());
             }
-            let delay = if state.in_game { 1000 } else { 3000 };
+            let delay = if state.in_game { 1000 } else { 1500 };
             tokio::time::sleep(Duration::from_millis(delay)).await;
         }
     });
@@ -118,7 +123,45 @@ pub fn spawn_watcher(app: AppHandle) {
 #[cfg(windows)]
 mod platform {
     use windows::core::{w, PCWSTR};
-    use windows::Win32::UI::WindowsAndMessaging::{FindWindowW, IsIconic, IsWindowVisible};
+    use windows::Win32::Foundation::RECT;
+    use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        FindWindowW, GetClassNameW, GetForegroundWindow, GetWindowRect, GetWindowThreadProcessId, IsIconic,
+        IsWindowVisible,
+    };
+
+    /// Whether the focused window covers its whole monitor (borderless/fullscreen games,
+    /// TFT, videos). `None` when the focused window is our own overlay.
+    pub fn fullscreen_app() -> Option<bool> {
+        unsafe {
+            let fg = GetForegroundWindow();
+            if fg.0.is_null() {
+                return Some(false);
+            }
+            let mut pid = 0u32;
+            GetWindowThreadProcessId(fg, Some(&mut pid));
+            if pid == std::process::id() {
+                return None;
+            }
+            let mut class = [0u16; 64];
+            let n = GetClassNameW(fg, &mut class).max(0) as usize;
+            let class = String::from_utf16_lossy(&class[..n]);
+            // The desktop itself is "fullscreen" but obviously not a game.
+            if matches!(class.as_str(), "Progman" | "WorkerW" | "Shell_TrayWnd") {
+                return Some(false);
+            }
+            let mut rect = RECT::default();
+            if GetWindowRect(fg, &mut rect).is_err() {
+                return Some(false);
+            }
+            let mut info = MONITORINFO { cbSize: std::mem::size_of::<MONITORINFO>() as u32, ..Default::default() };
+            if !GetMonitorInfoW(MonitorFromWindow(fg, MONITOR_DEFAULTTONEAREST), &mut info).as_bool() {
+                return Some(false);
+            }
+            let m = info.rcMonitor;
+            Some(rect.left <= m.left && rect.top <= m.top && rect.right >= m.right && rect.bottom >= m.bottom)
+        }
+    }
 
     /// The League client's main window (LeagueClientUx) has the class `RCLIENT`.
     pub fn client_open() -> bool {
@@ -134,6 +177,9 @@ mod platform {
 mod platform {
     pub fn client_open() -> bool {
         false
+    }
+    pub fn fullscreen_app() -> Option<bool> {
+        Some(false)
     }
 }
 

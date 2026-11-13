@@ -4,6 +4,7 @@ import { isWorking } from "./t3";
 import type { ThreadView } from "./useT3";
 
 export function dotClass(t: ThreadView) {
+  if (t.questions.length > 0) return "dot ask";
   if (isWorking(t.status)) return "dot run";
   if (t.unread) return "dot new";
   if (t.status === "failed" || t.status === "interrupted") return "dot fail";
@@ -22,6 +23,16 @@ export function relativeTimeShort(iso: string, now = Date.now()) {
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
   return `${Math.floor(seconds / 86400)}d`;
+}
+
+/** How long the current run has been going: "40s", "4m", "1h 5m". */
+export function workingFor(t: ThreadView, now = Date.now()) {
+  const since = t.conversation?.runStartedAt;
+  if (!since || !isWorking(t.status)) return "";
+  const s = Math.max(0, Math.floor((now - Date.parse(since)) / 1000));
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
 }
 
 /** The second line of a roster row: the newest reply, else your last message. */

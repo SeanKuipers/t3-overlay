@@ -47,6 +47,8 @@ export interface GameState {
   gameTime: number;
   /** The League client window is open (not minimized). */
   clientOpen: boolean;
+  /** A fullscreen app (TFT, another game) has focus; treated like being in a game. */
+  fullscreenApp: boolean;
 }
 
 export type VoiceEvent =

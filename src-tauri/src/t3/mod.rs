@@ -13,6 +13,8 @@ pub const ALLOWED_TOOLS: &[&str] = &[
     "t3_thread_send",
     // Queued messages: list them, steer one now, or drop one (like T3's composer).
     "t3_queue",
+    // Answer an agent's questions (it cannot approve permission requests).
+    "t3_pending_request",
 ];
 
 pub fn check_allowed(tool: &str) -> Result<(), String> {
