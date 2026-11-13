@@ -342,6 +342,9 @@ export function Overlay() {
     },
     [focusInput, hubShown],
   );
+  // The ticker toggles: clicking it again closes what it opened.
+  const closeView = () => (hubShown ? closeHubChat() : close());
+
   const openNotice = useCallback(
     (notice: NoticeView) => {
       if (typeof notice.id === "number") t3.dismissNotice(notice.id);
@@ -380,9 +383,10 @@ export function Overlay() {
         <Ticker
           threads={t3.threads}
           connected={!!t3.status?.connected}
-          onOpen={openThread}
+          onOpen={(id) => (viewing && id === selectedId ? closeView() : openThread(id))}
           onOpenSettings={() => native.openSettings()}
           onOpenAny={() => {
+            if (viewing) return closeView();
             const id = selectedId ?? t3.threads[0]?.threadId;
             if (id) openThread(id);
             else if (hubShown) setHubChat(true);
