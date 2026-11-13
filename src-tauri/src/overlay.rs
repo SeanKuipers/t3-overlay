@@ -99,6 +99,19 @@ pub fn release_focus(app: &AppHandle) {
     platform::restore_focus(previous);
 }
 
+/// Lets the next app we launch (the browser) come to the front. Without this Windows keeps
+/// it behind the current window and only flashes it in the taskbar.
+pub fn allow_others_to_take_focus() {
+    platform::allow_any_foreground();
+}
+
+/// Brings any of our windows (e.g. Settings) to the front, even when another app has focus.
+pub fn bring_to_front(window: &WebviewWindow) {
+    let _ = window.unminimize();
+    let _ = window.show();
+    platform::force_focus(window);
+}
+
 #[cfg(windows)]
 mod platform {
     use tauri::WebviewWindow;
@@ -106,7 +119,7 @@ mod platform {
     use windows::Win32::Foundation::HWND;
     use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
     use windows::Win32::UI::WindowsAndMessaging::{
-        BringWindowToTop, FindWindowW, GetForegroundWindow, GetWindowLongPtrW,
+        AllowSetForegroundWindow, BringWindowToTop, ASFW_ANY, FindWindowW, GetForegroundWindow, GetWindowLongPtrW,
         GetWindowThreadProcessId, IsWindow, SetForegroundWindow, SetWindowLongPtrW, ShowWindow,
         GWL_EXSTYLE, SW_SHOW, WS_EX_TOOLWINDOW,
     };
@@ -135,14 +148,24 @@ mod platform {
         }
     }
 
-    /// Windows only lets the foreground thread change focus. Briefly attaching to its input
-    /// queue lets us take focus right after a global hotkey.
+    pub fn allow_any_foreground() {
+        unsafe {
+            let _ = AllowSetForegroundWindow(ASFW_ANY);
+        }
+    }
+
+    /// Windows only lets the foreground thread change focus. Briefly attaching the window's
+    /// thread to the foreground thread's input queue lets us take focus anyway. Uses the
+    /// window's own thread (not the calling one) so this also works from async tasks.
     pub fn force_focus(window: &WebviewWindow) {
         let Some(target) = raw(window) else { return };
         unsafe {
             let fg = GetForegroundWindow();
             let fg_thread = GetWindowThreadProcessId(fg, None);
-            let our_thread = GetCurrentThreadId();
+            let our_thread = match GetWindowThreadProcessId(target, None) {
+                0 => GetCurrentThreadId(),
+                t => t,
+            };
             let attached = fg_thread != 0
                 && fg_thread != our_thread
                 && AttachThreadInput(our_thread, fg_thread, true).as_bool();
@@ -182,6 +205,7 @@ mod platform {
         None
     }
     pub fn make_non_activating(_window: &WebviewWindow) {}
+    pub fn allow_any_foreground() {}
     pub fn force_focus(window: &WebviewWindow) {
         let _ = window.set_focus();
     }

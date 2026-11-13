@@ -94,6 +94,7 @@ async fn t3_connect(app: AppHandle, state: State<'_, AppState>, server_url: Stri
     let http = t3::http_client();
     let opener = app.clone();
     let auth = t3::oauth::authorize(&http, &server_url, move |url| {
+        overlay::allow_others_to_take_focus();
         tauri_plugin_opener::open_url(url, None::<&str>).map_err(|e| anyhow::anyhow!(e.to_string()))?;
         let _ = opener.emit("t3://approval-opened", url);
         Ok(())
@@ -111,6 +112,10 @@ async fn t3_connect(app: AppHandle, state: State<'_, AppState>, server_url: Stri
     *state.auth.lock().unwrap() = Some(auth);
     let status = status_of(&state);
     let _ = app.emit("t3://connection", &status);
+    // Come back from the browser so you can see it worked.
+    if let Some(settings) = app.get_webview_window("settings") {
+        overlay::bring_to_front(&settings);
+    }
     Ok(status)
 }
 
@@ -257,9 +262,7 @@ fn voice_stop(app: &AppHandle) {
 
 fn show_settings(app: &AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window("settings") {
-        window.unminimize()?;
-        window.show()?;
-        window.set_focus()?;
+        overlay::bring_to_front(&window);
         return Ok(());
     }
     WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("index.html?view=settings".into()))
