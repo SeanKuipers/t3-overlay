@@ -1827,3 +1827,243 @@ html[data-mock][data-view="overlay"] body {
   font-weight: 600;
   color: #fff;
 }
+
+/* ---------- ⚙ settings inside the overlay ---------- */
+.head-gear {
+  display: inline-grid;
+  place-items: center;
+}
+.head-gear.on {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+.quick-settings {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+  background: rgba(255, 255, 255, 0.04);
+}
+.qs-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: min(560px, 70vh);
+  overflow-y: auto;
+  padding: 4px 10px 10px;
+  scrollbar-width: thin;
+}
+.inbox.sized .qs-scroll {
+  max-height: none;
+}
+.quick-settings section + section {
+  margin-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.quick-settings h3 {
+  margin: 10px 4px 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.qs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 34px;
+  padding: 4px 4px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #e8e8ea;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+.qs-stack {
+  flex-wrap: wrap;
+}
+.qs-toggle {
+  cursor: pointer;
+}
+.qs-toggle:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.qs-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+.qs-text small,
+.qs-hint {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.qs-hint {
+  margin: 0 4px 4px;
+  line-height: 1.4;
+}
+.switch {
+  flex-shrink: 0;
+  position: relative;
+  width: 32px;
+  height: 18px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.16);
+  transition: background 0.15s;
+}
+.switch i {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+.switch.on {
+  background: #4ea1ff;
+}
+.switch.on i {
+  transform: translateX(14px);
+}
+.segmented {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 2px;
+  gap: 2px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.segmented button {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.segmented.slots button {
+  min-width: 30px;
+  padding: 4px 0;
+}
+.segmented button:hover:not(:disabled) {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+.segmented button.on {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+.segmented button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+  font-weight: 600;
+}
+.stepper span {
+  min-width: 64px;
+  text-align: center;
+}
+.stepper button,
+.qs-btn {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #e8e8ea;
+  font: inherit;
+  cursor: pointer;
+}
+.stepper button {
+  width: 24px;
+  height: 22px;
+  font-size: 14px;
+}
+.stepper button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+.stepper button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.qs-btn {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+  font-weight: 600;
+}
+.qs-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+}
+.qs-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.qs-btn.primary {
+  background: #ffd27a;
+  color: #1a1206;
+}
+.quick-settings input.hotkey {
+  flex-shrink: 0;
+  width: 150px;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 7px;
+  outline: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font: 12px ui-monospace, Consolas, monospace;
+  text-align: center;
+  cursor: pointer;
+}
+.quick-settings input.hotkey.recording {
+  border-color: var(--run);
+}
+.qs-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+}
+.qs-conn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+.qs-conn.ok .dot {
+  background: #4ade80;
+}
+.qs-conn.err .dot {
+  background: var(--fail);
+}
+.qs-link {
+  border: 0;
+  background: transparent;
+  color: #8ab4ff;
+  font: inherit;
+  cursor: pointer;
+}
+.qs-link:hover {
+  text-decoration: underline;
+}

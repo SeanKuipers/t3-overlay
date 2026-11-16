@@ -7,7 +7,9 @@ import { useHoverId } from "../lib/useHoverId";
 import type { ThreadView } from "../lib/useT3";
 import { ChatSwitcher } from "./ChatSwitcher";
 import { Conversation, type ConversationProps } from "./Conversation";
+import { GearIcon } from "./Inbox";
 import { NewChat } from "./NewChat";
+import { QuickSettings } from "./QuickSettings";
 
 // The dock: outside games, a thin strip on the right edge of the screen (like OpenBot's).
 // One round icon per chat, with a working ring, unread dot or question badge. Hovering
@@ -52,7 +54,10 @@ interface Props extends Omit<ConversationProps, "thread" | "threadCount" | "foot
   /** The T3 logo: open/close the chat on the current thread. */
   onToggleChat: () => void;
   onFocusRequest: () => void;
-  onOpenSettings: () => void;
+  /** The ⚙ panel (in place of the chat). */
+  settingsOpen: boolean;
+  onToggleSettings: () => void;
+  settingsProps: Omit<React.ComponentProps<typeof QuickSettings>, "onClose">;
   composing: boolean;
   onNewChat: () => void;
   onStartChat: (projectId: string | null, message: string) => Promise<void>;
@@ -65,7 +70,7 @@ export function Hub(props: Props) {
   const expanded = useHoverId() === "dock";
   useTicker(true, 5_000); // keeps "5m" / "Working 4m" fresh
 
-  const paneOpen = chatOpen && (!!props.selectedId || props.composing);
+  const paneOpen = chatOpen && (!!props.selectedId || props.composing || props.settingsOpen);
   // The dock's "All chats" opens the pane with the switcher's list open.
   const [switchSignal, setSwitchSignal] = useState(0);
   useEffect(() => {
@@ -95,7 +100,7 @@ export function Hub(props: Props) {
           {threads.map((t) => (
             <button
               key={t.threadId}
-              className={`dock-row${paneOpen && !props.composing && t.threadId === selected?.threadId ? " on" : ""}`}
+              className={`dock-row${paneOpen && !props.composing && !props.settingsOpen && t.threadId === selected?.threadId ? " on" : ""}`}
               onClick={() => props.onOpen(t.threadId)}
               onContextMenu={menu(t.threadId)}
               title={expanded ? undefined : t.title}
@@ -128,7 +133,7 @@ export function Hub(props: Props) {
             <small>{props.allThreads.length} in T3</small>
           </span>
         </button>
-        <button className={`dock-row dock-plus${props.composing && paneOpen ? " on" : ""}`} onClick={props.onNewChat} title="New chat">
+        <button className={`dock-row dock-plus${props.composing && !props.settingsOpen && paneOpen ? " on" : ""}`} onClick={props.onNewChat} title="New chat">
           <span className="logo-mark plain">+</span>
           <span className="dock-label">
             <b>New chat</b>
@@ -154,7 +159,7 @@ export function Hub(props: Props) {
             </span>
           </button>
         )}
-        <button className="dock-row dock-plus" onClick={props.onOpenSettings} title="Settings">
+        <button className={`dock-row dock-plus${paneOpen && props.settingsOpen ? " on" : ""}`} onClick={props.onToggleSettings} title="Settings">
           <span className="logo-mark plain">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <circle cx="12" cy="12" r="3" />
@@ -185,11 +190,16 @@ export function Hub(props: Props) {
             <button className="close head-new" onClick={props.onNewChat} title="New chat (Ctrl+N)">
               +
             </button>
+            <button className={`close head-gear${props.settingsOpen ? " on" : ""}`} onClick={props.onToggleSettings} title="Settings" aria-label="Settings">
+              <GearIcon />
+            </button>
             <button className="close" onClick={props.onCloseChat} title="Close (Esc)">
               ×
             </button>
           </div>
-          {props.composing ? (
+          {props.settingsOpen ? (
+            <QuickSettings {...props.settingsProps} onClose={props.onToggleSettings} />
+          ) : props.composing ? (
             <NewChat
               suggestedProjectId={selected?.projectId ?? null}
               inputRef={props.inputRef}

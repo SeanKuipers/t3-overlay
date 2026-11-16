@@ -42,6 +42,9 @@ export async function installMock(scenario: string) {
       switch (cmd) {
         case "get_config":
           return { serverUrl: "http://100.88.0.1:3773", hotkeyInbox: "Ctrl+Shift+Space", hotkeyVoice: "Ctrl+Shift+V", voiceEnabled: true, hotkeyPrev: "Ctrl+Shift+Q", hotkeyNext: "Ctrl+Shift+E", openOnDeath: true, openOnGameEnd: true, tickerOutsideGame: true, recentHours: 2, pollSeconds: 4, autoUpdate: true, launchAtLogin: true, sendMode: "queue", hubMode: "client", settingsVersion: 2 };
+        case "save_config":
+          emit("config://changed", (payload as { config: unknown }).config);
+          return (payload as { config: unknown }).config;
         case "t3_status":
           return { serverUrl: "http://100.88.0.1:3773", connected: true, expiresAtMs: now + 29 * 86_400_000 };
         case "t3_call": {
@@ -103,9 +106,9 @@ export async function installMock(scenario: string) {
     JSON.stringify(scenario === "hubrun" || scenario === "hubask" ? { t1: "a1@" + iso(1), t3: "a3@" + iso(200) } : { t3: "a3@" + iso(200) }),
   );
   const game =
-    scenario === "hub" || scenario === "hubchat" || scenario === "hubrun" || scenario === "hubask" || scenario === "newhub" || scenario === "picker" || scenario === "dockhover" || scenario === "dockswitch"
+    scenario === "hub" || scenario === "hubchat" || scenario === "hubrun" || scenario === "hubask" || scenario === "newhub" || scenario === "picker" || scenario === "dockhover" || scenario === "dockswitch" || scenario === "dockquick"
       ? { inGame: false, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 0, clientOpen: true, fullscreenApp: false }
-      : scenario === "dead" || scenario === "mini" || scenario === "newinbox" || scenario === "menu" || scenario === "switcher" || scenario === "layouts"
+      : scenario === "dead" || scenario === "mini" || scenario === "newinbox" || scenario === "menu" || scenario === "switcher" || scenario === "layouts" || scenario === "quick"
       ? { inGame: true, dead: true, respawnSeconds: 23, gameEnded: false, gameTime: 1085, gameMode: "CLASSIC" }
       : scenario === "ended"
         ? { inGame: true, dead: false, respawnSeconds: 0, gameEnded: true, gameTime: 1900 }
@@ -126,6 +129,8 @@ export async function installMock(scenario: string) {
     if (scenario === "layouts") {
       setTimeout(() => document.querySelector<HTMLButtonElement>(".head-layout")?.click(), 900);
     }
+    if (scenario === "quick") setTimeout(() => document.querySelector<HTMLButtonElement>(".head-gear")?.click(), 700);
+    if (scenario === "dockquick") setTimeout(() => document.querySelector<HTMLButtonElement>(".dock-row[title=Settings]")?.click(), 700);
     if (scenario === "switcher") setTimeout(() => document.querySelector<HTMLButtonElement>(".switcher-trigger")?.click(), 700);
     if (scenario === "dockswitch")
       setTimeout(() => {

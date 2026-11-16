@@ -5,7 +5,7 @@ import { useGame } from "../lib/useGame";
 import { useHitRegions } from "../lib/useHitRegions";
 import { useT3 } from "../lib/useT3";
 import { useCornerDrag } from "../lib/useCornerDrag";
-import { CONTEXT_LABEL, contextOf, useLayout } from "../lib/useLayout";
+import { contextOf, useLayout } from "../lib/useLayout";
 import { useUpdate } from "../lib/useUpdate";
 import { UpdatePill } from "./UpdateControl";
 import { Hub } from "./Hub";
@@ -73,6 +73,8 @@ export function Overlay() {
   const [minimized, setMinimized] = useState(false);
   // The "New chat" card is showing in the inbox / hub pane.
   const [composing, setComposing] = useState(false);
+  // The ⚙ panel is showing in the inbox / dock pane.
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [focused, setFocused] = useState(document.hasFocus());
   const [endDismissed, setEndDismissed] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -182,6 +184,7 @@ export function Overlay() {
     setDeathOpen(false);
     setMinimized(false);
     setComposing(false);
+    setSettingsOpen(false);
     if (game.gameEnded) setEndDismissed(true);
     if (document.hasFocus()) native.releaseOverlay();
   }, [game.gameEnded]);
@@ -203,6 +206,7 @@ export function Overlay() {
   const closeHubChat = useCallback(() => {
     setHubChat(false);
     setComposing(false);
+    setSettingsOpen(false);
     if (document.hasFocus()) native.releaseOverlay();
   }, []);
 
@@ -227,7 +231,16 @@ export function Overlay() {
     [hubShown, hubChat, inboxExpanded, close, closeHubChat, focusInput],
   );
   // Esc closes the inbox, focused or not (registered only while it's open).
-  useEffect(() => on("hotkey://close", () => inboxExpanded && close()), [inboxExpanded, close]);
+  // With the ⚙ panel up, Esc just closes the panel.
+  useEffect(
+    () =>
+      on("hotkey://close", () => {
+        if (!inboxExpanded) return;
+        if (settingsOpen) setSettingsOpen(false);
+        else close();
+      }),
+    [inboxExpanded, settingsOpen, close],
+  );
 
   // Thread-switching hotkeys (and global Esc) exist only while the in-game inbox is up,
   // not while it's minimized: then League gets those keys back.
@@ -388,6 +401,7 @@ export function Overlay() {
       t3.include(threadId);
       setSelectedId(threadId);
       setComposing(false);
+      setSettingsOpen(false);
       setMinimized(false);
       if (hubShown) setHubChat(true);
       else setPinned(true);
@@ -398,6 +412,7 @@ export function Overlay() {
   // New chat: open the inbox / hub pane on the "New chat" card.
   const newChat = useCallback(() => {
     setComposing(true);
+    setSettingsOpen(false);
     setMinimized(false);
     if (hubShown) setHubChat(true);
     else setPinned(true);
@@ -452,35 +467,21 @@ export function Overlay() {
     [threads, closedCount, t3.markRead],
   );
 
-  // Layouts: the inbox's ▦ button. Swap to a saved layout, save this one, or reset.
-  const openLayoutMenu = useCallback(
-    (x: number, y: number) => {
-      const label = CONTEXT_LABEL[layouts.context];
-      setMenu({
-        x,
-        y,
-        title: `Layouts · now: ${label}`,
-        items: [
-          ...layouts.slots.map((saved, i) => ({
-            section: i === 0 ? "Switch to" : undefined,
-            label: `Layout ${i + 1}`,
-            hint: saved ? `Ctrl+${i + 1}` : "empty",
-            disabled: !saved,
-            keepOpen: true,
-            onClick: () => layouts.applySlot(i),
-          })),
-          ...layouts.slots.map((saved, i) => ({
-            section: i === 0 ? "Save current as" : undefined,
-            label: `Layout ${i + 1}`,
-            hint: saved ? "replaces it" : "",
-            onClick: () => layouts.saveSlot(i),
-          })),
-          { section: "", label: `Reset ${label} to default`, onClick: layouts.reset },
-        ],
-      });
-    },
-    [layouts],
-  );
+  // ⚙: settings in the inbox / dock pane, in place of the chat. Again to go back.
+  const toggleSettings = useCallback(() => {
+    if (settingsOpen && (!hubShown || hubChat)) {
+      setSettingsOpen(false);
+      return;
+    }
+    setSettingsOpen(true);
+    setComposing(false);
+    setMinimized(false);
+    if (hubShown) setHubChat(true);
+    else setPinned(true);
+    native.focusOverlay();
+  }, [settingsOpen, hubShown, hubChat]);
+  const settingsProps = { config, connected: !!t3.status?.connected, update, layouts };
+
   // Ctrl+1/2/3 (overlay focused, e.g. while typing in the inbox): swap layouts.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -572,7 +573,9 @@ export function Overlay() {
           onDraft={(text) => selected && setDrafts((d) => ({ ...d, [selected.threadId]: text }))}
           onSubmit={submit}
           onFocusRequest={focusInput}
-          onOpenSettings={() => native.openSettings()}
+          settingsOpen={settingsOpen}
+          onToggleSettings={toggleSettings}
+          settingsProps={settingsProps}
           onToggleChat={() => {
             if (hubChat) return closeHubChat();
             const id = selectedId ?? threads[0]?.threadId;
@@ -620,7 +623,9 @@ export function Overlay() {
           onThreadMenu={onThreadMenu}
           box={layouts.layout.inbox}
           onBoxChange={layouts.setInbox}
-          onLayoutMenu={openLayoutMenu}
+          settingsOpen={settingsOpen}
+          onToggleSettings={toggleSettings}
+          settingsProps={settingsProps}
         />
       )}
       {voice && <VoiceHud voice={voice} />}

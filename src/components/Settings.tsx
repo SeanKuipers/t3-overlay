@@ -26,7 +26,7 @@ function comboFromEvent(e: React.KeyboardEvent): string | null {
   return parts.join("+");
 }
 
-function HotkeyInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export function HotkeyInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [recording, setRecording] = useState(false);
   return (
     <input
@@ -331,7 +331,7 @@ export function Settings() {
   );
 }
 
-function updateText(update: UpdateStatus, version: string | null): string {
+export function updateText(update: UpdateStatus, version: string | null): string {
   const current = version ? `v${version}` : "";
   switch (update.phase) {
     case "idle":
