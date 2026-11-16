@@ -1612,8 +1612,8 @@ html[data-mock][data-view="overlay"] body {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  min-width: 0;
-  max-width: calc(100% - 120px);
+  flex: 0 1 auto;
+  min-width: 110px;
   padding: 5px 9px;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -1627,19 +1627,25 @@ html[data-mock][data-view="overlay"] body {
 .hub-chat-head .switcher-trigger {
   max-width: calc(100% - 70px);
 }
+.switcher-trigger .dot,
+.switcher-trigger .switcher-badge,
+.switcher-trigger .switcher-chevron {
+  flex-shrink: 0;
+}
 .switcher-trigger:hover,
 .switcher-trigger.open {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.08);
 }
 .switcher-title {
-  min-width: 0;
+  min-width: 48px;
+  flex-shrink: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .switcher-project {
-  flex-shrink: 1;
+  flex-shrink: 4;
   min-width: 0;
   max-width: 110px;
   overflow: hidden;
@@ -1767,4 +1773,57 @@ html[data-mock][data-view="overlay"] body {
 .switch-status {
   flex-shrink: 0;
   font-size: 11px;
+}
+
+/* ---------- layouts: resizable inbox ---------- */
+.inbox.sized {
+  max-height: none;
+}
+.inbox .body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.resize-grip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  z-index: 2;
+  /* two small diagonal strokes, like a window corner */
+  background:
+    linear-gradient(135deg, transparent 0 55%, rgba(255, 255, 255, 0.28) 55% 62%, transparent 62% 72%, rgba(255, 255, 255, 0.28) 72% 79%, transparent 79%);
+  opacity: 0.55;
+  transition: opacity 0.12s;
+}
+.inbox:hover .resize-grip,
+.inbox.dragging .resize-grip {
+  opacity: 1;
+}
+.drag-shield.resize {
+  cursor: nwse-resize;
+}
+.head-layout {
+  display: inline-grid;
+  place-items: center;
+}
+.menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.menu-title {
+  padding: 5px 10px 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.menu-head {
+  padding: 6px 10px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
 }

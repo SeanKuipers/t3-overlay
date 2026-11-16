@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 export interface MenuItem {
   label: string;
@@ -6,12 +6,18 @@ export interface MenuItem {
   hint?: string;
   danger?: boolean;
   disabled?: boolean;
+  /** Starts a new group: a divider, with this title if non-empty. */
+  section?: string;
+  /** Keep the menu open after clicking (e.g. to see a change happen). */
+  keepOpen?: boolean;
 }
 
 export interface MenuState {
   x: number;
   y: number;
   items: MenuItem[];
+  /** Shown at the top, small and muted. */
+  title?: string;
 }
 
 /**
@@ -58,20 +64,28 @@ export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () =>
       onPointerLeave={() => (leaveTimer.current = window.setTimeout(onClose, 900))}
       onPointerEnter={() => window.clearTimeout(leaveTimer.current)}
     >
-      {menu.items.map((item) => (
-        <button
-          key={item.label}
-          role="menuitem"
-          className={`menu-item${item.danger ? " danger" : ""}`}
-          disabled={item.disabled}
-          onClick={() => {
-            onClose();
-            item.onClick();
-          }}
-        >
-          <span>{item.label}</span>
-          {item.hint && <span className="menu-hint">{item.hint}</span>}
-        </button>
+      {menu.title && <div className="menu-head">{menu.title}</div>}
+      {menu.items.map((item, i) => (
+        <Fragment key={`${i}:${item.label}`}>
+          {item.section !== undefined && (
+            <>
+              {i > 0 && <div className="menu-sep" />}
+              {item.section && <div className="menu-title">{item.section}</div>}
+            </>
+          )}
+          <button
+            role="menuitem"
+            className={`menu-item${item.danger ? " danger" : ""}`}
+            disabled={item.disabled}
+            onClick={() => {
+              if (!item.keepOpen) onClose();
+              item.onClick();
+            }}
+          >
+            <span>{item.label}</span>
+            {item.hint && <span className="menu-hint">{item.hint}</span>}
+          </button>
+        </Fragment>
       ))}
     </div>
   );

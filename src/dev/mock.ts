@@ -34,6 +34,8 @@ const reads: Record<string, unknown[]> = {
 
 export async function installMock(scenario: string) {
   localStorage.clear();
+  if (scenario === "layouts")
+    localStorage.setItem("t3-overlay:layouts", JSON.stringify({ contexts: { league: { inbox: { x: 60, y: 140, w: 620, h: 420 }, ticker: null } }, slots: [{ inbox: { x: 900, y: 400, w: 420, h: 300 }, ticker: { x: 900, y: 360 } }, null, null] }));
   mockIPC(
     (cmd, payload) => {
       const args = payload as Record<string, any>;
@@ -78,7 +80,7 @@ export async function installMock(scenario: string) {
           return null;
         }
         case "game_state":
-          return { inGame: false, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 0, clientOpen: false, fullscreenApp: false };
+          return { inGame: false, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 0, clientOpen: false, fullscreenApp: false, gameMode: "" };
         case "overlay_diagnostics":
           return { windowExists: true, visible: true, minimized: false, position: [0, 0], size: [2560, 1440], exStyle: "0x002800a8", focusableNow: false, heartbeatAgeMs: 2100, errors: [] };
         case "hex_status":
@@ -103,8 +105,8 @@ export async function installMock(scenario: string) {
   const game =
     scenario === "hub" || scenario === "hubchat" || scenario === "hubrun" || scenario === "hubask" || scenario === "newhub" || scenario === "picker" || scenario === "dockhover" || scenario === "dockswitch"
       ? { inGame: false, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 0, clientOpen: true, fullscreenApp: false }
-      : scenario === "dead" || scenario === "mini" || scenario === "newinbox" || scenario === "menu" || scenario === "switcher"
-      ? { inGame: true, dead: true, respawnSeconds: 23, gameEnded: false, gameTime: 1085 }
+      : scenario === "dead" || scenario === "mini" || scenario === "newinbox" || scenario === "menu" || scenario === "switcher" || scenario === "layouts"
+      ? { inGame: true, dead: true, respawnSeconds: 23, gameEnded: false, gameTime: 1085, gameMode: "CLASSIC" }
       : scenario === "ended"
         ? { inGame: true, dead: false, respawnSeconds: 0, gameEnded: true, gameTime: 1900 }
         : { inGame: true, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 870 };
@@ -121,6 +123,9 @@ export async function installMock(scenario: string) {
         const r = tab?.getBoundingClientRect();
         tab?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: (r?.x ?? 0) + 20, clientY: (r?.y ?? 0) + 20 }));
       }, 700);
+    if (scenario === "layouts") {
+      setTimeout(() => document.querySelector<HTMLButtonElement>(".head-layout")?.click(), 900);
+    }
     if (scenario === "switcher") setTimeout(() => document.querySelector<HTMLButtonElement>(".switcher-trigger")?.click(), 700);
     if (scenario === "dockswitch")
       setTimeout(() => {

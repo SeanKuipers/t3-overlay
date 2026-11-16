@@ -24,6 +24,8 @@ pub struct GameState {
     pub client_open: bool,
     /// Some fullscreen app (TFT, another game, a video) has focus: treated like a game.
     pub fullscreen_app: bool,
+    /// The API's `gameMode` ("CLASSIC", "ARAM", "TFT", …); empty when it isn't answering.
+    pub game_mode: String,
 }
 
 /// The latest state, for windows that start listening after it was emitted.
@@ -82,7 +84,15 @@ pub fn parse_state(active_name: &str, players: &Value, events: Option<&Value>, s
         .and_then(|s| s.get("gameTime"))
         .and_then(Value::as_f64)
         .unwrap_or(0.0);
-    GameState { in_game: true, dead, respawn_seconds, game_ended, game_time, ..Default::default() }
+    GameState { in_game: true, dead, respawn_seconds, game_ended, game_time, game_mode: mode_of(stats), ..Default::default() }
+}
+
+fn mode_of(stats: Option<&Value>) -> String {
+    stats
+        .and_then(|s| s.get("gameMode"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string()
 }
 
 async fn poll_once(http: &reqwest::Client) -> GameState {
@@ -90,11 +100,11 @@ async fn poll_once(http: &reqwest::Client) -> GameState {
         return GameState::default();
     };
     let active = active.as_str().unwrap_or_default().to_string();
+    let stats = get(http, "/gamestats").await;
     let Some(players) = get(http, "/playerlist").await else {
-        return GameState { in_game: true, ..Default::default() };
+        return GameState { in_game: true, game_mode: mode_of(stats.as_ref()), ..Default::default() };
     };
     let events = get(http, "/eventdata").await;
-    let stats = get(http, "/gamestats").await;
     parse_state(&active, &players, events.as_ref(), stats.as_ref())
 }
 
@@ -109,6 +119,12 @@ pub fn spawn_watcher(app: AppHandle) {
             // but the game window is the same one: count it as a game.
             if !state.in_game && platform::game_window_open() {
                 state.in_game = true;
+            }
+            // The API can drop out mid-game (or not answer in TFT): keep the mode we knew.
+            if state.in_game && state.game_mode.is_empty() {
+                if let Some(l) = last.as_ref().filter(|l| l.in_game) {
+                    state.game_mode = l.game_mode.clone();
+                }
             }
             state.client_open = platform::client_open();
             // While our own overlay has focus, keep the previous answer.
@@ -211,7 +227,8 @@ mod tests {
             {"riotId":"Other#EUW","summonerName":"Other#EUW","isDead":true,"respawnTimer":10.0},
             {"riotId":"Egg#EUW","riotIdGameName":"Egg","summonerName":"Egg#EUW","isDead":true,"respawnTimer":23.5}
         ]);
-        let state = parse_state("Egg#EUW", &players, None, Some(&json!({"gameTime": 1085.2})));
+        let state = parse_state("Egg#EUW", &players, None, Some(&json!({"gameTime": 1085.2, "gameMode": "TFT"})));
+        assert_eq!(state.game_mode, "TFT");
         assert!(state.in_game && state.dead);
         assert_eq!(state.respawn_seconds, 23.5);
         assert_eq!(state.game_time, 1085.2);

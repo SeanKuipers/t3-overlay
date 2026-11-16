@@ -1,16 +1,5 @@
 import { useRef, useState } from "react";
-
-const KEY = "t3-overlay:ticker-pos";
-export type Pos = { x: number; y: number };
-
-function load(): Pos | null {
-  try {
-    const p = JSON.parse(localStorage.getItem(KEY) ?? "null");
-    return typeof p?.x === "number" && typeof p?.y === "number" ? p : null;
-  } catch {
-    return null;
-  }
-}
+import type { Pos } from "./useLayout";
 
 const clamp = (p: Pos): Pos => ({
   x: Math.round(Math.min(Math.max(0, p.x), window.innerWidth - 60)),
@@ -19,10 +8,13 @@ const clamp = (p: Pos): Pos => ({
 
 /**
  * Drag for the ticker + notifications. A press that moves more than a few pixels drags;
- * otherwise it's a normal click. `null` position = the default corner. Remembered.
+ * otherwise it's a normal click. `null` position = the default corner. `onChange` saves it
+ * (into the current layout) when the drag ends.
  */
-export function useCornerDrag() {
-  const [pos, setPos] = useState<Pos | null>(load);
+export function useCornerDrag(saved: Pos | null, onChange: (pos: Pos | null) => void) {
+  // While dragging: the live position; otherwise the saved one.
+  const [live, setLive] = useState<Pos | null>(null);
+  const pos = live ?? saved;
   const [dragging, setDragging] = useState(false);
   const justDragged = useRef(false);
 
@@ -40,7 +32,7 @@ export function useCornerDrag() {
         setDragging(true);
       }
       latest = clamp({ x: ev.clientX - offset.x, y: ev.clientY - offset.y });
-      setPos(latest);
+      setLive(latest);
     };
     const up = () => {
       window.removeEventListener("pointermove", move);
@@ -49,7 +41,8 @@ export function useCornerDrag() {
         justDragged.current = true;
         setTimeout(() => (justDragged.current = false), 0);
         setDragging(false);
-        if (latest) localStorage.setItem(KEY, JSON.stringify(latest));
+        if (latest) onChange(latest);
+        setLive(null);
       }
     };
     window.addEventListener("pointermove", move);
@@ -64,10 +57,7 @@ export function useCornerDrag() {
     }
   };
 
-  const reset = () => {
-    localStorage.removeItem(KEY);
-    setPos(null);
-  };
+  const reset = () => onChange(null);
 
   return { pos: pos && clamp(pos), dragging, onPointerDown, onClickCapture, reset };
 }

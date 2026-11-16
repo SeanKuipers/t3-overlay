@@ -5,6 +5,7 @@ import { useGame } from "../lib/useGame";
 import { useHitRegions } from "../lib/useHitRegions";
 import { useT3 } from "../lib/useT3";
 import { useCornerDrag } from "../lib/useCornerDrag";
+import { CONTEXT_LABEL, contextOf, useLayout } from "../lib/useLayout";
 import { useUpdate } from "../lib/useUpdate";
 import { UpdatePill } from "./UpdateControl";
 import { Hub } from "./Hub";
@@ -372,7 +373,8 @@ export function Overlay() {
 
   // The ticker stays up while the inbox is open too, so it's always there to click.
   // Always on screen, whatever you're playing (it's tiny, and movable).
-  const corner = useCornerDrag();
+  const layouts = useLayout(contextOf(game));
+  const corner = useCornerDrag(layouts.layout.ticker, layouts.setTicker);
 
   // Clicking the ticker or a notice opens that thread in the inbox, ready to reply.
   const openThread = useCallback(
@@ -449,6 +451,49 @@ export function Overlay() {
     },
     [threads, closedCount, t3.markRead],
   );
+
+  // Layouts: the inbox's ▦ button. Swap to a saved layout, save this one, or reset.
+  const openLayoutMenu = useCallback(
+    (x: number, y: number) => {
+      const label = CONTEXT_LABEL[layouts.context];
+      setMenu({
+        x,
+        y,
+        title: `Layouts · now: ${label}`,
+        items: [
+          ...layouts.slots.map((saved, i) => ({
+            section: i === 0 ? "Switch to" : undefined,
+            label: `Layout ${i + 1}`,
+            hint: saved ? `Ctrl+${i + 1}` : "empty",
+            disabled: !saved,
+            keepOpen: true,
+            onClick: () => layouts.applySlot(i),
+          })),
+          ...layouts.slots.map((saved, i) => ({
+            section: i === 0 ? "Save current as" : undefined,
+            label: `Layout ${i + 1}`,
+            hint: saved ? "replaces it" : "",
+            onClick: () => layouts.saveSlot(i),
+          })),
+          { section: "", label: `Reset ${label} to default`, onClick: layouts.reset },
+        ],
+      });
+    },
+    [layouts],
+  );
+  // Ctrl+1/2/3 (overlay focused, e.g. while typing in the inbox): swap layouts.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+      const slot = Number(e.key) - 1;
+      if (Number.isInteger(slot) && slot >= 0 && slot < layouts.slots.length && layouts.slots[slot]) {
+        e.preventDefault();
+        layouts.applySlot(slot);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [layouts]);
 
   // The ticker toggles: clicking it again closes what it opened.
   const closeView = () => (hubShown ? closeHubChat() : close());
@@ -573,6 +618,9 @@ export function Overlay() {
           onAnswer={onAnswer}
           {...newChatProps}
           onThreadMenu={onThreadMenu}
+          box={layouts.layout.inbox}
+          onBoxChange={layouts.setInbox}
+          onLayoutMenu={openLayoutMenu}
         />
       )}
       {voice && <VoiceHud voice={voice} />}

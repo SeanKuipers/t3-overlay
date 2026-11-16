@@ -50,6 +50,8 @@ export interface GameState {
   clientOpen: boolean;
   /** A fullscreen app (TFT, another game) has focus; treated like being in a game. */
   fullscreenApp: boolean;
+  /** "CLASSIC", "ARAM", "TFT", … from the game; "" when unknown. */
+  gameMode: string;
 }
 
 export type VoiceEvent =

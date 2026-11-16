@@ -223,7 +223,7 @@ export function ChatSwitcher(props: Props) {
           e.preventDefault();
           if (selectedView && !props.composing) props.onThreadMenu(selectedView.threadId, e.clientX, e.clientY);
         }}
-        title="All chats (Ctrl+K) · scroll to switch"
+        title={`${selectedAny?.projectTitle ? `${selectedAny.projectTitle} · ` : ""}All chats (Ctrl+K) · scroll to switch`}
       >
         {props.composing ? (
           <>
@@ -234,7 +234,6 @@ export function ChatSwitcher(props: Props) {
           <>
             {selectedView ? <span className={dotClass(selectedView)} /> : <span className="dot idle" />}
             <span className="switcher-title">{selectedAny?.title || (selectedId ? "Loading…" : "Chats")}</span>
-            {selectedAny?.projectTitle && <span className="switcher-project">{selectedAny.projectTitle}</span>}
           </>
         )}
         {waiting > 0 && <span className="switcher-badge" title={`${waiting} other chat${waiting > 1 ? "s" : ""} waiting for you`}>{waiting}</span>}
