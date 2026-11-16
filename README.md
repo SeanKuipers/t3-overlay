@@ -5,10 +5,11 @@
 Read and answer your [T3 Code](https://t3.codes) agents while playing League of Legends, without alt-tabbing.
 
 - **While you're alive:** a small ticker in the corner shows which agents are working and which have replied. When an agent finishes, the first line of its reply pops up for a few seconds. Click either one to open that thread in the inbox, and click the ticker again to close it. The ticker is always on screen, whatever you're playing, and turns into a tiny "● T3" pill when nothing's happening. Drag it anywhere; the pop-ups follow it, and it remembers where you left it.
-- **While you're dead:** the **Respawn Inbox** opens on the left of the screen, clear of the shop. Drag it by its tab bar to wherever suits your HUD; double-click the tab bar to put it back. It shows your last message, the agent's reply, and a reply box, with a bar counting down to your respawn. It closes when you respawn, unless you've started typing a reply. In that case it stays open, and gives the keyboard back to League, until you send it or close the inbox with `Esc` or `×`.
+- **While you're dead:** the **Respawn Inbox** opens on the left of the screen, clear of the shop. Drag it by its top bar to wherever suits your HUD; double-click the top bar to put it back. It shows your last message, the agent's reply, and a reply box, with a bar counting down to your respawn. It closes when you respawn, unless you've started typing a reply. In that case it stays open, and gives the keyboard back to League, until you send it or close the inbox with `Esc` or `×`.
 - **Agent questions:** when an agent stops to ask you something, the question shows up with its options. Click one to answer; a single-choice question is answered with that one click, which fits a death timer. The ticker says "<thread> asks", and the dock shows an orange **?** on the chat.
 - **Outside games:** a slim **dock** sits on the right edge of the screen, like [OpenBot](https://github.com/CopilotKit/OpenBot)'s: the T3 logo, one round icon per recent chat (spinning ring while working, purple dot for a new reply, orange **?** for a question), **+** for a new chat and ⚙ for Settings. Hover it and it slides open to show names and status; click a chat to open it beside the dock, or the logo to open the current one. Settings → Dock can limit it to while the League client is open, or turn it off.
-- **Start new chats:** press **+** in the inbox's tab bar or on the dock, pick a project from a picker like T3's own (search, arrow keys, **No project**), type what the agent should do, and press Enter. The new thread opens right away.
+- **Every chat, one click away:** the chat's name at the top of the inbox is a switcher. Click it (or press `Ctrl+K`) for a searchable list of all your T3 chats: what needs you (questions, new replies) first, then what's working, recent chats, and everything earlier. Arrow keys and Enter work too. Scroll over the name to step through the recent ones. The dock has the same list under **All chats**.
+- **Start new chats:** press **+** next to the chat switcher, `Ctrl+N`, or **+** on the dock, pick a project from a picker like T3's own (search, arrow keys, **No project**), type what the agent should do, and press Enter. The new thread opens right away.
 - **Reply by typing or by voice:** hold a key, talk, and let go. [Hex](https://github.com/anomalyco/hex) turns your speech into text and the overlay sends it to the thread.
 
 <p>
@@ -51,10 +52,11 @@ The overlay keeps running in the system tray and starts with Windows; you can tu
 |---|---|---|
 | Open / close inbox | `Ctrl+Shift+Space` | Opens the inbox at any time and focuses the reply box. Press again to close it. `Esc` also closes it, even when League has the keyboard: while the inbox is open, the overlay takes `Esc`. |
 | Hold to talk | `Ctrl+Shift+V` | Hold it, speak, release. The text is sent to the thread open in the inbox. If the inbox is closed, it goes to the newest unread thread, or else the most recently active one. |
-| Switch threads | `Ctrl+Shift+Q` / `Ctrl+Shift+E` | Previous / next thread. Only active while the inbox is open, so League keeps these keys otherwise. Scrolling the mouse wheel over the tabs does the same. |
+| Switch threads | `Ctrl+Shift+Q` / `Ctrl+Shift+E` | Previous / next thread. Only active while the inbox is open, so League keeps these keys otherwise. Scrolling the mouse wheel over the chat name does the same. |
 | In the inbox | `Enter` / `Ctrl+Enter` | **Queue**: runs as the agent's next turn. **Steer**: joins the turn it's working on right now. Swap them in Settings → Sending. |
 | | `Shift+Enter` / `Tab` / `Esc` | New line / next thread / close |
-| | Right-click a tab | **Close tab** hides the thread from the overlay until the agent replies again or asks something. Also **Close other tabs**, **Mark as read** and **Reopen closed tabs**. The same menu works on chats in the dock. |
+| | `Ctrl+K` / `Ctrl+N` | All chats (searchable) / new chat |
+| | Right-click a chat | **Hide** keeps the chat out of the ticker, dock and thread keys until the agent replies again or asks something (it's still under **Earlier** in the list). Also **Hide all others**, **Mark as read** and **Show hidden chats**. Works on the chat name, in the list, and in the dock. |
 | | **–** (next to ×) | Minimizes the inbox to a notification-sized pill. The pill keeps your draft and the respawn timer. Click it to expand, or click its × to close. While it's minimized, League gets `Esc` and the thread keys back. |
 | | Hold `Ctrl` | The send button shows ≡+ (queue) by default and switches to ↱ (steer) while you hold Ctrl, like T3. Queued messages are listed above the reply box, each with **Steer** (send it into the running turn now) and **×** (drop it). |
 
@@ -64,7 +66,7 @@ All hotkeys can be changed in Settings. After you send a message, typed or spoke
 
 New versions are published as signed releases. Pushes to `main` only run the checks, and a release is built when the Build workflow is run by hand. The overlay checks for a new one every 2 minutes, downloads it in the background, and installs it silently as soon as you're not using it: inbox closed, not dictating. That works mid-game too. The overlay disappears for a few seconds, comes back on its own without taking focus from League, and briefly shows what changed.
 
-To update right now, even mid-game: once a new version is downloaded, the inbox's tab bar shows **⬆ update to v…**. Click it to install. Outside games the dock shows a yellow **⬆ Update to v…** button. **Update now** in the tray menu does the same. To turn automatic updates off, use **Settings → Updates**. Updates are signed, and the overlay refuses any installer that isn't signed with the project's key.
+To update right now, even mid-game: once a new version is downloaded, the inbox's top bar shows **⬆ update to v…**. Click it to install. Outside games the dock shows a yellow **⬆ Update to v…** button. **Update now** in the tray menu does the same. To turn automatic updates off, use **Settings → Updates**. Updates are signed, and the overlay refuses any installer that isn't signed with the project's key.
 
 ### GlazeWM and other tiling window managers
 

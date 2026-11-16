@@ -10,6 +10,11 @@ const threads = [
   { threadId: "t1", projectId: "p1", title: "api-refactor", status: "completed", parentThreadId: null, itemCount: 40, createdAt: iso(90), updatedAt: iso(1) },
   { threadId: "t2", projectId: "p2", title: "t3-overlay", status: "running", parentThreadId: null, itemCount: 120, createdAt: iso(60), updatedAt: iso(0) },
   { threadId: "t3", projectId: "p1", title: "fix-tests", status: "idle", parentThreadId: null, itemCount: 12, createdAt: iso(300), updatedAt: iso(200) },
+  // Older chats: only in the switcher's "Earlier".
+  { threadId: "t4", projectId: "p2", title: "Dock hover polish", status: "completed", parentThreadId: null, itemCount: 30, createdAt: iso(2000), updatedAt: iso(900) },
+  { threadId: "t5", projectId: "p1", title: "Migrate auth middleware", status: "completed", parentThreadId: null, itemCount: 50, createdAt: iso(4000), updatedAt: iso(3000) },
+  { threadId: "t6", projectId: "p2", title: "GlazeWM workspace follow", status: "failed", parentThreadId: null, itemCount: 20, createdAt: iso(9000), updatedAt: iso(8000) },
+  { threadId: "t7", projectId: "p1", title: "Rate limiter for billing API", status: "completed", parentThreadId: null, itemCount: 44, createdAt: iso(20000), updatedAt: iso(15000) },
 ];
 
 const reads: Record<string, unknown[]> = {
@@ -96,9 +101,9 @@ export async function installMock(scenario: string) {
     JSON.stringify(scenario === "hubrun" || scenario === "hubask" ? { t1: "a1@" + iso(1), t3: "a3@" + iso(200) } : { t3: "a3@" + iso(200) }),
   );
   const game =
-    scenario === "hub" || scenario === "hubchat" || scenario === "hubrun" || scenario === "hubask" || scenario === "newhub" || scenario === "picker" || scenario === "dockhover"
+    scenario === "hub" || scenario === "hubchat" || scenario === "hubrun" || scenario === "hubask" || scenario === "newhub" || scenario === "picker" || scenario === "dockhover" || scenario === "dockswitch"
       ? { inGame: false, dead: false, respawnSeconds: 0, gameEnded: false, gameTime: 0, clientOpen: true, fullscreenApp: false }
-      : scenario === "dead" || scenario === "mini" || scenario === "newinbox" || scenario === "menu"
+      : scenario === "dead" || scenario === "mini" || scenario === "newinbox" || scenario === "menu" || scenario === "switcher"
       ? { inGame: true, dead: true, respawnSeconds: 23, gameEnded: false, gameTime: 1085 }
       : scenario === "ended"
         ? { inGame: true, dead: false, respawnSeconds: 0, gameEnded: true, gameTime: 1900 }
@@ -109,13 +114,19 @@ export async function installMock(scenario: string) {
     if (scenario === "voice") emit("voice://state", { phase: "recording" });
     if (scenario === "newhub" || scenario === "picker") setTimeout(() => document.querySelector<HTMLButtonElement>(".hub-icon.plus")?.click(), 600);
     if (scenario === "picker") setTimeout(() => document.querySelector<HTMLButtonElement>(".project-trigger")?.click(), 1100);
-    if (scenario === "newinbox") setTimeout(() => document.querySelector<HTMLButtonElement>(".new-tab")?.click(), 600);
+    if (scenario === "newinbox") setTimeout(() => document.querySelector<HTMLButtonElement>(".head-new")?.click(), 600);
     if (scenario === "menu")
       setTimeout(() => {
-        const tab = document.querySelectorAll<HTMLElement>(".tab")[1];
+        const tab = document.querySelector<HTMLElement>(".switcher-trigger");
         const r = tab?.getBoundingClientRect();
         tab?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: (r?.x ?? 0) + 20, clientY: (r?.y ?? 0) + 20 }));
       }, 700);
+    if (scenario === "switcher") setTimeout(() => document.querySelector<HTMLButtonElement>(".switcher-trigger")?.click(), 700);
+    if (scenario === "dockswitch")
+      setTimeout(() => {
+        emit("overlay://hover", "dock");
+        [...document.querySelectorAll<HTMLButtonElement>(".dock-row")].find((b) => b.textContent?.includes("All chats"))?.click();
+      }, 900);
     if (scenario === "dockhover") setTimeout(() => emit("overlay://hover", "dock"), 1500);
     if (scenario === "mini") setTimeout(() => document.querySelector<HTMLButtonElement>(".close.minimize")?.click(), 600);
     if (scenario === "hubchat" || scenario === "hubrun" || scenario === "hubask") setTimeout(() => emit("hotkey://inbox", null), 400);

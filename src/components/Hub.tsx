@@ -1,9 +1,11 @@
+import { useEffect, useState } from "react";
 import { native } from "../lib/native";
-import { isWorking } from "../lib/t3";
-import { dotClass, relativeTimeShort, workingFor } from "../lib/threadUi";
+import { isWorking, type Thread } from "../lib/t3";
+import { relativeTimeShort, workingFor } from "../lib/threadUi";
 import { useTicker } from "../lib/useGame";
 import { useHoverId } from "../lib/useHoverId";
 import type { ThreadView } from "../lib/useT3";
+import { ChatSwitcher } from "./ChatSwitcher";
 import { Conversation, type ConversationProps } from "./Conversation";
 import { NewChat } from "./NewChat";
 
@@ -39,6 +41,9 @@ function status(t: ThreadView) {
 
 interface Props extends Omit<ConversationProps, "thread" | "threadCount" | "footer" | "onClose"> {
   threads: ThreadView[];
+  /** Every chat, for the switcher. */
+  allThreads: Thread[];
+  selectedId: string | null;
   selected: ThreadView | null;
   chatOpen: boolean;
   focused: boolean;
@@ -60,7 +65,12 @@ export function Hub(props: Props) {
   const expanded = useHoverId() === "dock";
   useTicker(true, 5_000); // keeps "5m" / "Working 4m" fresh
 
-  const paneOpen = chatOpen && (!!selected || props.composing);
+  const paneOpen = chatOpen && (!!props.selectedId || props.composing);
+  // The dock's "All chats" opens the pane with the switcher's list open.
+  const [switchSignal, setSwitchSignal] = useState(0);
+  useEffect(() => {
+    if (!paneOpen) setSwitchSignal(0);
+  }, [paneOpen]);
   const focusOnClick = () => !props.focused && props.onFocusRequest();
   const menu = (threadId: string) => (e: React.MouseEvent) => {
     e.preventDefault();
@@ -99,6 +109,25 @@ export function Hub(props: Props) {
           ))}
         </div>
         <div className="dock-sep" />
+        <button
+          className="dock-row dock-plus"
+          onClick={() => {
+            if (!paneOpen) props.onToggleChat();
+            setSwitchSignal((n) => n + 1);
+          }}
+          title="All chats (Ctrl+K)"
+        >
+          <span className="logo-mark plain">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+          </span>
+          <span className="dock-label">
+            <b>All chats</b>
+            <small>{props.allThreads.length} in T3</small>
+          </span>
+        </button>
         <button className={`dock-row dock-plus${props.composing && paneOpen ? " on" : ""}`} onClick={props.onNewChat} title="New chat">
           <span className="logo-mark plain">+</span>
           <span className="dock-label">
@@ -141,23 +170,26 @@ export function Hub(props: Props) {
       {paneOpen && (
         <div className="hub-chat dock-chat inbox glass" data-hit onMouseDown={focusOnClick}>
           <div className="hub-chat-head">
-            {props.composing || !selected ? (
-              <span className="hub-chat-title">New chat</span>
-            ) : (
-              <>
-                <span className={dotClass(selected)} />
-                <span className="hub-chat-title" title={selected.title}>
-                  {selected.title || "Untitled"}
-                </span>
-                {selected.projectTitle && <span className="hub-chat-project">{selected.projectTitle}</span>}
-              </>
-            )}
+            <ChatSwitcher
+              threads={threads}
+              all={props.allThreads}
+              selectedId={props.selectedId}
+              composing={props.composing}
+              onSelect={props.onOpen}
+              onNewChat={props.onNewChat}
+              onThreadMenu={props.onThreadMenu}
+              onCycle={props.onCycle}
+              openSignal={switchSignal}
+            />
             <span className="spacer" />
+            <button className="close head-new" onClick={props.onNewChat} title="New chat (Ctrl+N)">
+              +
+            </button>
             <button className="close" onClick={props.onCloseChat} title="Close (Esc)">
               ×
             </button>
           </div>
-          {props.composing || !selected ? (
+          {props.composing ? (
             <NewChat
               suggestedProjectId={selected?.projectId ?? null}
               inputRef={props.inputRef}

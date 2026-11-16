@@ -156,12 +156,17 @@ export function Overlay() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game, config?.openOnDeath, hubMode]);
 
+  // A chat picked from the switcher that isn't active yet: keep it selected while it loads.
+  const loadingId = useRef<string | null>(null);
   // Keep a valid selection: first unread, else the newest thread.
   useEffect(() => {
-    if (threads.length === 0) return;
-    if (!selectedId || !threads.some((t) => t.threadId === selectedId)) {
-      setSelectedId((threads.find((t) => t.unread) ?? threads[0]).threadId);
+    if (selectedId && threads.some((t) => t.threadId === selectedId)) {
+      if (loadingId.current === selectedId) loadingId.current = null;
+      return;
     }
+    if (selectedId && selectedId === loadingId.current) return;
+    if (threads.length === 0) return;
+    setSelectedId((threads.find((t) => t.unread) ?? threads[0]).threadId);
   }, [threads, selectedId]);
 
   const selected = threads.find((t) => t.threadId === selectedId) ?? null;
@@ -186,7 +191,12 @@ export function Overlay() {
 
   const focusInput = useCallback(async () => {
     await native.focusOverlay();
-    requestAnimationFrame(() => inputRef.current?.focus());
+    requestAnimationFrame(() => {
+      // Don't steal the caret from a search box (switcher, project picker) that just opened.
+      const active = document.activeElement as HTMLElement | null;
+      if (active && active !== inputRef.current && active.matches("input, textarea")) return;
+      inputRef.current?.focus();
+    });
   }, []);
 
   const closeHubChat = useCallback(() => {
@@ -372,13 +382,16 @@ export function Overlay() {
         const { [threadId]: _, ...rest } = c;
         return rest;
       });
+      if (!threadsRef.current.some((t) => t.threadId === threadId)) loadingId.current = threadId;
+      t3.include(threadId);
       setSelectedId(threadId);
+      setComposing(false);
       setMinimized(false);
       if (hubShown) setHubChat(true);
       else setPinned(true);
       focusInput();
     },
-    [focusInput, hubShown],
+    [focusInput, hubShown, t3.include],
   );
   // New chat: open the inbox / hub pane on the "New chat" card.
   const newChat = useCallback(() => {
@@ -420,15 +433,15 @@ export function Overlay() {
         x,
         y,
         items: [
-          { label: "Close tab", hint: "until it replies", onClick: () => closeTabs([threadId]) },
+          { label: "Hide", hint: "until it replies", onClick: () => closeTabs([threadId]) },
           {
-            label: "Close other tabs",
+            label: "Hide all others",
             disabled: threads.length < 2,
             onClick: () => closeTabs(threads.filter((x) => x.threadId !== threadId).map((x) => x.threadId)),
           },
           ...(t.unread ? [{ label: "Mark as read", onClick: () => t3.markRead(threadId) }] : []),
           ...(closedCount > 0
-            ? [{ label: `Reopen closed tabs (${closedCount})`, onClick: () => setClosed({}) }]
+            ? [{ label: `Show hidden chats (${closedCount})`, onClick: () => setClosed({}) }]
             : []),
         ],
       });
@@ -493,6 +506,8 @@ export function Overlay() {
       {hubShown && (
         <Hub
           threads={threads}
+          allThreads={t3.allThreads}
+          selectedId={selectedId}
           selected={selected}
           chatOpen={hubChat}
           connected={!!t3.status?.connected}
@@ -529,6 +544,8 @@ export function Overlay() {
       {inboxVisible && (
         <Inbox
           threads={threads}
+          allThreads={t3.allThreads}
+          selectedId={selectedId}
           selected={selected}
           connected={!!t3.status?.connected}
           error={t3.error}
@@ -542,7 +559,7 @@ export function Overlay() {
           sendMode={config?.sendMode ?? "queue"}
           update={update}
           navHotkeys={config && config.hotkeyPrev && config.hotkeyNext ? [config.hotkeyPrev, config.hotkeyNext] : null}
-          onSelect={setSelectedId}
+          onSelect={openThread}
           onCycle={cycle}
           onDraft={(text) => selected && setDrafts((d) => ({ ...d, [selected.threadId]: text }))}
           onSubmit={submit}

@@ -170,7 +170,7 @@ export function Settings() {
         </label>
         <p className="hint">
           These two only work while the inbox is open; the rest of the time League keeps those keys. Scrolling over the
-          tabs switches threads too.
+          chat name switches threads too, and clicking it (or Ctrl+K) lists every chat.
         </p>
         <label className="check">
           <input type="checkbox" checked={config.voiceEnabled} onChange={(e) => set("voiceEnabled", e.target.checked)} />
@@ -240,7 +240,7 @@ export function Settings() {
         </label>
         <div className="row">
           <label>
-            Show threads active in the last
+            Keep chats up front (ticker, dock, Q/E) when active in the last
             <input
               type="number"
               min={1}

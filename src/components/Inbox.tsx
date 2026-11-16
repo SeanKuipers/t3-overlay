@@ -1,13 +1,18 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useRef, useState, type RefObject } from "react";
+import type { Thread } from "../lib/t3";
 import { dotClass } from "../lib/threadUi";
 import { useTicker, type Game } from "../lib/useGame";
 import type { ThreadView } from "../lib/useT3";
+import { ChatSwitcher } from "./ChatSwitcher";
 import { Conversation, type ConversationProps } from "./Conversation";
 import { NewChat } from "./NewChat";
 import { UpdateControl } from "./UpdateControl";
 
 interface Props extends Omit<ConversationProps, "thread" | "threadCount" | "footer"> {
   threads: ThreadView[];
+  /** Every chat, for the switcher. */
+  allThreads: Thread[];
+  selectedId: string | null;
   selected: ThreadView | null;
   game: Game;
   focused: boolean;
@@ -22,7 +27,7 @@ interface Props extends Omit<ConversationProps, "thread" | "threadCount" | "foot
   onNewChat: () => void;
   onStartChat: (projectId: string | null, message: string) => Promise<void>;
   onCancelNewChat: () => void;
-  /** Right-click on a tab. */
+  /** Right-click on a chat. */
   onThreadMenu: (threadId: string, x: number, y: number) => void;
 }
 
@@ -89,24 +94,8 @@ function useDrag(rootRef: RefObject<HTMLDivElement | null>) {
 export function Inbox(props: Props) {
   const { threads, selected, game } = props;
   const rootRef = useRef<HTMLDivElement>(null);
-  const selectedTabRef = useRef<HTMLButtonElement>(null);
   const drag = useDrag(rootRef);
   useTicker(game.dead);
-
-  // Keep the selected tab visible when the strip scrolls.
-  useEffect(() => {
-    selectedTabRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [selected?.threadId]);
-
-  // Mouse wheel over the tabs switches threads (one step per notch).
-  const lastWheel = useRef(0);
-  const onWheel = (e: React.WheelEvent) => {
-    const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-    const now = Date.now();
-    if (delta === 0 || now - lastWheel.current < 120) return;
-    lastWheel.current = now;
-    props.onCycle(delta > 0 ? 1 : -1);
-  };
 
   const remaining = game.respawnAt ? Math.max(0, (game.respawnAt - Date.now()) / 1000) : 0;
   const progress = game.respawnTotal > 0 ? 1 - remaining / game.respawnTotal : 0;
@@ -145,27 +134,20 @@ export function Inbox(props: Props) {
     >
       <div className="tabs" onPointerDown={drag.start} onDoubleClick={(e) => !(e.target as HTMLElement).closest("button") && drag.reset()}>
         <span className="grip" title="Drag to move · double-click to reset">⠿</span>
-        <div className="tab-strip" onWheel={onWheel}>
-          {threads.map((t) => (
-            <button
-              key={t.threadId}
-              ref={t.threadId === selected?.threadId ? selectedTabRef : undefined}
-              className={`tab${!props.composing && t.threadId === selected?.threadId ? " on" : ""}`}
-              onClick={() => props.onSelect(t.threadId)}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                props.onThreadMenu(t.threadId, e.clientX, e.clientY);
-              }}
-              title={`${t.projectTitle} · ${t.title}`}
-            >
-              <span className={dotClass(t)} />
-              <span className="tab-title">{t.title || "Untitled"}</span>
-            </button>
-          ))}
-          <button className={`tab new-tab${props.composing ? " on" : ""}`} onClick={props.onNewChat} title="New chat">
-            +
-          </button>
-        </div>
+        <ChatSwitcher
+          threads={threads}
+          all={props.allThreads}
+          selectedId={props.selectedId}
+          composing={props.composing}
+          onSelect={props.onSelect}
+          onNewChat={props.onNewChat}
+          onThreadMenu={props.onThreadMenu}
+          onCycle={props.onCycle}
+        />
+        <span className="spacer" />
+        <button className="close head-new" onClick={props.onNewChat} title="New chat (Ctrl+N)">
+          +
+        </button>
         {/* Only when there's something to do: a new version is downloading / ready / failed. */}
         {["downloading", "ready", "installing", "error"].includes(props.update.status.phase) && (
           <span className="head-update">

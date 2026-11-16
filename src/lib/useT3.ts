@@ -8,7 +8,7 @@ import {
   readPending,
   isWorking,
   listQueue,
-  listRecentThreads,
+  listThreads,
   readConversation,
   sendMessage,
   steerQueued,
@@ -35,6 +35,9 @@ export interface Notice {
 }
 
 const SEEN_KEY = "t3-overlay:seen";
+const OPENED_KEY = "t3-overlay:opened";
+/** At most this many chats are "active" (read, polled, in the ticker and Ctrl+Shift+Q/E). */
+const MAX_ACTIVE = 8;
 const startedAt = Date.now();
 
 function loadSeen(): Record<string, string> {
@@ -45,15 +48,31 @@ function loadSeen(): Record<string, string> {
   }
 }
 
+function loadOpened(): Map<string, number> {
+  try {
+    return new Map(Object.entries(JSON.parse(localStorage.getItem(OPENED_KEY) ?? "{}")));
+  } catch {
+    return new Map();
+  }
+}
+
 function firstLine(text: string, max = 140) {
   const line = text.replace(/[#*_`>]/g, "").split("\n").find((l) => l.trim()) ?? "";
   return line.length > max ? `${line.slice(0, max - 1)}…` : line;
 }
 
-/** Polls T3 for recent threads, tracks unread replies, and raises notices when agents finish. */
+/**
+ * Polls T3: every chat (for the switcher), plus full reads of the active ones: recently
+ * updated, working, or recently opened from the switcher. Tracks unread replies and raises
+ * notices when agents finish or ask something.
+ */
 export function useT3(pollSeconds: number, recentHours: number) {
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
   const [threads, setThreads] = useState<ThreadView[]>([]);
+  /** Every chat, newest first (list data only: no conversation). */
+  const [allThreads, setAllThreads] = useState<Thread[]>([]);
+  /** Chats you opened from the switcher count as active for a while: threadId → when. */
+  const opened = useRef(loadOpened());
   const [error, setError] = useState<string | null>(null);
   const [notices, setNotices] = useState<Notice[]>([]);
   const seen = useRef<Record<string, string>>(loadSeen());
@@ -65,6 +84,8 @@ export function useT3(pollSeconds: number, recentHours: number) {
   const requests = useRef(new Map<string, PendingRequest>()); // by requestId, read once
   const answered = useRef(new Set<string>());
   const noticeId = useRef(0);
+  const threadsRef = useRef(threads);
+  threadsRef.current = threads;
 
   useEffect(() => {
     native.t3Status().then(setStatus);
@@ -79,7 +100,18 @@ export function useT3(pollSeconds: number, recentHours: number) {
   const refresh = useCallback(async () => {
     if (!status?.connected) return;
     try {
-      const list = await listRecentThreads(recentHours);
+      const everything = await listThreads();
+      setAllThreads(everything);
+      const since = Date.now() - recentHours * 3_600_000;
+      for (const [id, at] of opened.current) if (at < since) opened.current.delete(id);
+      localStorage.setItem(OPENED_KEY, JSON.stringify(Object.fromEntries(opened.current)));
+      const touched = (t: Thread) => Math.max(Date.parse(t.updatedAt), opened.current.get(t.threadId) ?? 0);
+      const list = everything
+        .filter((t) => touched(t) >= since || isWorking(t.status))
+        .sort((a, b) => touched(b) - touched(a))
+        .slice(0, MAX_ACTIVE)
+        // Stable order for cycling: newest activity first, as in T3.
+        .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
       const views: ThreadView[] = [];
       for (const thread of list) {
         let cached = cache.current.get(thread.threadId);
@@ -247,9 +279,19 @@ export function useT3(pollSeconds: number, recentHours: number) {
     [refresh],
   );
 
+  /** Makes a chat active (e.g. picked from the switcher), so it's read and polled. */
+  const include = useCallback(
+    (threadId: string) => {
+      opened.current.set(threadId, Date.now());
+      localStorage.setItem(OPENED_KEY, JSON.stringify(Object.fromEntries(opened.current)));
+      if (!threadsRef.current.some((t) => t.threadId === threadId)) refresh();
+    },
+    [refresh],
+  );
+
   const dismissNotice = useCallback((id: number | string) => {
     setNotices((n) => n.filter((x) => x.id !== id));
   }, []);
 
-  return { status, threads, error, notices, markRead, send, refresh, dismissNotice, steer, unqueue, answer, launch };
+  return { status, threads, allThreads, include, error, notices, markRead, send, refresh, dismissNotice, steer, unqueue, answer, launch };
 }

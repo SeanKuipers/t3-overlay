@@ -118,11 +118,10 @@ export async function listProjects(): Promise<Project[]> {
   return projects;
 }
 
-/** Top-level threads updated in the last `hours`, newest first. */
-export async function listRecentThreads(hours: number, max = 6): Promise<Thread[]> {
+/** Every top-level, unarchived thread (the newest per project), newest first. */
+export async function listThreads(perProject = 25): Promise<Thread[]> {
   const projects = await listProjects();
   const titles = new Map(projects.map((p) => [p.id, p.title]));
-  const since = Date.now() - hours * 3_600_000;
   let threads: ThreadListItem[] = [];
 
   // Newer servers list every project in one call; older ones need a project id.
@@ -130,7 +129,7 @@ export async function listRecentThreads(hours: number, max = 6): Promise<Thread[
     try {
       const result = await native.t3Call<ThreadListResult>("t3_thread_list", {
         allProjects: true,
-        limit: 50,
+        limit: 100,
       });
       // Only usable if every item says which project it's in; otherwise list per project.
       if (result.projectId === null && (result.threads ?? []).every((t) => typeof t.projectId === "string")) {
@@ -147,7 +146,7 @@ export async function listRecentThreads(hours: number, max = 6): Promise<Thread[
     const pages = await Promise.all(
       projects.map((p) =>
         native
-          .t3Call<ThreadListResult>("t3_thread_list", { projectId: p.id, limit: 15 })
+          .t3Call<ThreadListResult>("t3_thread_list", { projectId: p.id, limit: perProject })
           // List items don't carry their project id; the per-project result does.
           .then((r) => (r.threads ?? []).map((t) => ({ ...t, projectId: t.projectId ?? p.id })))
           .catch(() => [] as ThreadListItem[]),
@@ -158,9 +157,7 @@ export async function listRecentThreads(hours: number, max = 6): Promise<Thread[
 
   return threads
     .filter((t) => t.parentThreadId === null && !t.archived)
-    .filter((t) => Date.parse(t.updatedAt) >= since || isWorking(t.status))
     .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
-    .slice(0, max)
     .map((t) => ({ ...t, projectTitle: titles.get(t.projectId) ?? "" }));
 }
 
